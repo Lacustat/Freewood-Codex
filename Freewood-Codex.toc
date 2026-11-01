@@ -1,0 +1,35 @@
+## Interface: 16001
+## Title: Freewood |cffc89b3cCodex|r
+## Notes: Learns quests, creatures and drops while you play: who gives and takes a quest, rewards, objectives, drop chances.
+## Notes-deDE: Lernt beim Spielen Quests, Kreaturen und Beute: wer eine Quest vergibt und annimmt, Belohnungen, Ziele, Drop-Chancen.
+## Author: Dominik
+## Version: 0.41.1
+## Dependencies: Freewood-Core
+## OptionalDeps: Freewood-CodexData, Freewood-ForeverData
+## IconTexture: Interface\Icons\INV_Misc_Book_09
+
+Locales.lua
+Codex.lua
+CodexOwners.lua
+CodexTrust.lua
+CodexNames.lua
+CodexSeed.lua
+CodexRoles.lua
+CodexRecipes.lua
+CodexTime.lua
+CodexShare.lua
+CodexZones.lua
+CodexPath.lua
+CodexPathMap.lua
+CodexTransport.lua
+CodexSpots.lua
+CodexForever.lua
+CodexAvail.lua
+CodexCatalog.lua
+CodexSync.lua
+CodexMap.lua
+CodexUI.lua
+CodexHints.lua
+CodexFavUI.lua
+CodexNameUI.lua
+CodexShareUI.lua
