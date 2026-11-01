@@ -775,8 +775,8 @@ local function Snap(g, x, y)
     return best, bestD
 end
 
--- A* ueber die Bloecke. Rueckgabe: Strecke in Yards oder nil
-local function Search(g, from, to)
+-- A* ueber die Bloecke. Rueckgabe: Strecke in Yards oder nil; mit wantPath als zweiter Wert die Knotenschluessel von from bis to
+local function Search(g, from, to, wantPath)
     local nodes = g.nodes
     local goal = nodes[to]
     if not goal then return nil end
@@ -785,6 +785,7 @@ local function Search(g, from, to)
         return 1.2 * math.sqrt(((n.bx + 0.5) * BLOCK * CELL - gx) ^ 2 + ((n.by + 0.5) * BLOCK * CELL - gy) ^ 2)
     end
     local dist, heap, size, done = { [from] = 0 }, {}, 0, {}
+    local prev = wantPath and {} or nil
     local function Push(k, pr)
         size = size + 1
         local i = size
@@ -816,7 +817,12 @@ local function Search(g, from, to)
     local expanded = 0
     while size > 0 do
         local k = Pop()
-        if k == to then return dist[k] end
+        if k == to then
+            if not wantPath then return dist[k] end
+            local list, cur, guard = {}, k, 0
+            while cur and guard < 100000 do table.insert(list, 1, cur); cur = prev[cur]; guard = guard + 1 end
+            return dist[k], list
+        end
         if not done[k] then
             done[k] = true
             expanded = expanded + 1
@@ -825,6 +831,7 @@ local function Search(g, from, to)
                 local nd = dist[k] + cost
                 if not dist[nk] or nd < dist[nk] then
                     dist[nk] = nd
+                    if prev then prev[nk] = k end
                     Push(nk, nd + H(nodes[nk]))
                 end
             end
@@ -888,6 +895,34 @@ function Path.Distance(world, ax, ay, bx, by)
     end
     if not cost then return nil end
     return da + cost + db_
+end
+
+-- Weg laengs des Wegenetzes als Punkte { x, y } (Zellraum, Yards) von a nach b, hoechstens alle `step` Yards ein Punkt (mindestens
+-- Start und Ziel). nil = unbekannt, Luftlinie benutzen. Rechnet ohne Zwischenspeicher, nur fuer die Anzeige gedacht.
+function Path.Route(world, ax, ay, bx, by, step)
+    if type(world) ~= "number" then return nil end
+    local straight = math.sqrt((ax - bx) ^ 2 + (ay - by) ^ 2)
+    if straight < 2 * BLOCK * CELL then return nil end
+    local g = Graph(world)
+    if not g then return nil end
+    local sa = Snap(g, ax, ay)
+    local sb = Snap(g, bx, by)
+    if not sa or not sb or sa == sb or g.comp[sa] ~= g.comp[sb] then return nil end
+    local cost, keys = Search(g, sa, sb, true)
+    if not cost or not keys then return nil end
+    step = step or 30
+    local out = { { ax, ay } }
+    local last = out[1]
+    for i, k in ipairs(keys) do
+        local nd = g.nodes[k]
+        local px, py = (nd.bx + 0.5) * BLOCK * CELL, (nd.by + 0.5) * BLOCK * CELL
+        if math.sqrt((px - last[1]) ^ 2 + (py - last[2]) ^ 2) >= step then
+            last = { px, py }
+            out[#out + 1] = last
+        end
+    end
+    out[#out + 1] = { bx, by }
+    return out
 end
 
 function Path.ResetGraphs()

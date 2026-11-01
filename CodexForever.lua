@@ -39,6 +39,7 @@ local function IsId(k) return type(k) == "number" and k >= 1 and k == math.floor
 local EXTRAS = {
     iq = function(k, v) return IsId(k) and type(v) == "number" and v >= 0 and v <= 8 end,
     disp = function(k, v) return IsId(k) and type(v) == "number" and v > 0 end,
+    iicon = function(k, v) return IsId(k) and type(v) == "string" and #v <= 120 and string.find(v, "^Interface") ~= nil end,
     vfac = function(k, v) return IsId(k) and (v == "A" or v == "H") end,
     wrq = function(k, v) return IsId(k) and type(v) == "table" end,
     names = function(k, v) return IsId(k) and type(v) == "string" and #v <= 80 end,

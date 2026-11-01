@@ -4,7 +4,7 @@
 -- Charaktere kommen, werden von anderen Spielern uebernommen. Der Absender einer Addon-Nachricht wird vom
 -- Spiel gesetzt und kann nicht gefaelscht werden.
 --
--- Eintrag zum Beispiel:   "Dominik-Everlook",
+-- Eintrag zum Beispiel:   "Lacustat-Everlook",
 -- (genau so geschrieben, wie der Charakter im Spiel heisst. Charaktere haben Vor- und Nachnamen: "Aroki Steel".
 --  Ein Bindestrich gilt nur als Realm-Trenner, wenn dahinter ClassicBetaPvP2 steht.)
 --

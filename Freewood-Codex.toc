@@ -2,8 +2,8 @@
 ## Title: Freewood |cffc89b3cCodex|r
 ## Notes: Learns quests, creatures and drops while you play: who gives and takes a quest, rewards, objectives, drop chances.
 ## Notes-deDE: Lernt beim Spielen Quests, Kreaturen und Beute: wer eine Quest vergibt und annimmt, Belohnungen, Ziele, Drop-Chancen.
-## Author: Dominik
-## Version: 0.42.0
+## Author: Lacustat
+## Version: 0.43.0
 ## Dependencies: Freewood-Core
 ## OptionalDeps: Freewood-CodexData, Freewood-ForeverData
 ## IconTexture: Interface\Icons\INV_Misc_Book_09

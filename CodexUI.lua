@@ -3451,7 +3451,7 @@ local function Build(content)
             end
             row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
             if e.itemID then
-                row.icon:SetTexture(ICON.items)
+                row.icon:SetTexture(Codex.IconOf(e.itemID) or ICON.items)
                 local q = Codex.QualityOf(e.itemID)
                 if q then row.title:SetText(Colored(e.title, q)) end
                 Util.RequestItem(e.itemID, function(info)

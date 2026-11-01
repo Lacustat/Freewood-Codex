@@ -25,6 +25,7 @@ NS.Flight = Flight
 
 local MAX_ROUTES = 600
 local MIN_SECS = 5
+local FLIGHT_WAIT = 20      -- Sekunden bis zum Abflug (Planer)
 local PRICE_WINDOW = 10      -- Sekunden nach dem Start, in denen der Preis abgebucht wird
 local state = Flight.state   -- slot = { [i] = { id, cost, kind } }, cur = Punkt-ID, pending
 
@@ -65,6 +66,14 @@ local function Hash(text)
 end
 
 -- Punkt-ID aus Kontinentkarte und Lage auf der Flugkarte
+function Flight.Money(c)
+    c = math.floor(tonumber(c) or 0)
+    local g, sv, cu = math.floor(c / 10000), math.floor(c / 100) % 100, c % 100
+    if g > 0 then return string.format("%dg %ds %dc", g, sv, cu) end
+    if sv > 0 then return string.format("%ds %dc", sv, cu) end
+    return string.format("%dc", cu)
+end
+
 function Flight.NodeId(c, tx, ty)
     if type(c) ~= "number" or type(tx) ~= "number" or type(ty) ~= "number" then return nil end
     return string.format("%d:%d:%d", c, tx, ty)
@@ -261,26 +270,75 @@ end
 
 -- Fluege als gerichtete Kanten { id, k = "flight", t, wait, from = {m,x,y}, to = {m,x,y}, name, est }. Nur Punkte mit bekanntem Kartenort.
 -- Gemessene Fluege gelten auch rueckwaerts (est = geschaetzt, bis dort selbst geflogen oder gemeldet). faction "A" | "H" | nil.
-function Flight.Edges(faction)
+function Flight.Edges(faction, onlyKnown)
     local out, have = {}, {}
     local all = Flight.All()
     local function Pos(n) return n and n.m and n.x and { m = n.m, x = n.x, y = n.y } end
+    local function Id(n) return Flight.NodeId(n.c, n.tx, n.ty) end
     for _, r in ipairs(all) do
-        have[Flight.NodeId(r.a.c, r.a.tx, r.a.ty) .. ">" .. Flight.NodeId(r.b.c, r.b.tx, r.b.ty)] = true
+        have[Id(r.a) .. ">" .. Id(r.b)] = true
     end
     for _, r in ipairs(all) do
         if not (faction and r.f and r.f ~= faction) then
+            local ia, ib = Id(r.a), Id(r.b)
             local pa, pb = Pos(r.a), Pos(r.b)
-            if pa and pb then
-                out[#out + 1] = { id = "f" .. r.id, k = "flight", t = r.t, from = pa, to = pb, name = r.b.n, fn = r.a.n, cost = r.c }
-                local back = Flight.NodeId(r.b.c, r.b.tx, r.b.ty) .. ">" .. Flight.NodeId(r.a.c, r.a.tx, r.a.ty)
-                if not have[back] then
-                    out[#out + 1] = { id = "f" .. r.id .. "r", k = "flight", t = r.t, from = pb, to = pa, name = r.a.n, fn = r.b.n, cost = r.c, est = true }
+            -- Fliegen kann nur, wer beide Flugpunkte kennt
+            if pa and pb and (not onlyKnown or (Flight.IsKnown(ia) and Flight.IsKnown(ib))) then
+                out[#out + 1] = { id = "f" .. r.id, k = "flight", t = r.t, wait = FLIGHT_WAIT, from = pa, to = pb, name = r.b.n, fn = r.a.n, cost = r.c, fa = ia, fb = ib }
+                if not have[ib .. ">" .. ia] then
+                    out[#out + 1] = { id = "f" .. r.id .. "r", k = "flight", t = r.t, wait = FLIGHT_WAIT, from = pb, to = pa, name = r.a.n, fn = r.b.n, cost = r.c, est = true, fa = ib, fb = ia }
                 end
             end
         end
     end
     return out
+end
+
+-- Flugpunkt-Daten { n, c, tx, ty, m, x, y } aus den eigenen und den gemeldeten Strecken (eigene bekannte Punkte zuerst)
+function Flight.Node(id)
+    local n = NodeOf(id)
+    if n then return n end
+    for _, r in ipairs(Flight.All()) do
+        for _, e in ipairs({ r.a, r.b }) do
+            if Flight.NodeId(e.c, e.tx, e.ty) == id then return e end
+        end
+    end
+    return nil
+end
+
+-- Ort { m, x, y } eines Flugpunkts oder nil
+function Flight.Point(id)
+    local n = Flight.Node(id)
+    if n and n.m and n.x then return { m = n.m, x = n.x, y = n.y } end
+    return nil
+end
+
+-- Geschaetzte Flugzeit (Sekunden) von Flugpunkt a nach b: gemessene Strecke (auch rueckwaerts) oder die Summe ueber Zwischenstationen
+-- aus gemessenen Strecken (das Spiel fliegt sie ohne Halt). nil, wenn nichts bekannt.
+function Flight.EstimateSecs(a, b)
+    if a == b then return 0 end
+    local adj = {}
+    for _, r in ipairs(Flight.All()) do
+        local ia, ib = Flight.NodeId(r.a.c, r.a.tx, r.a.ty), Flight.NodeId(r.b.c, r.b.tx, r.b.ty)
+        adj[ia] = adj[ia] or {}
+        adj[ib] = adj[ib] or {}
+        adj[ia][#adj[ia] + 1] = { ib, r.t }
+        adj[ib][#adj[ib] + 1] = { ia, r.t }
+    end
+    local dist, done = { [a] = 0 }, {}
+    while true do
+        local cur, cd
+        for k, d in pairs(dist) do
+            if not done[k] and (not cd or d < cd) then cur, cd = k, d end
+        end
+        if not cur then return nil end
+        if cur == b then return cd end
+        done[cur] = true
+        for _, e in ipairs(adj[cur] or {}) do
+            local nd = cd + e[2]
+            if not dist[e[1]] or nd < dist[e[1]] then dist[e[1]] = nd end
+        end
+    end
 end
 
 -- Kennt dieser Charakter den Flugpunkt (Punkt-ID)?

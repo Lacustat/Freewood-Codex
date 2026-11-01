@@ -87,6 +87,7 @@ local Codex = FW:NewModule("Codex", {
         vfac = {},     -- Fraktion von Haendlern { [haendlerID] = "A" | "H" } (nur lokal)
         ied = {},      -- Eigenschaften von Items { [itemID] = { ed = { z, dg } } }, wird geteilt
         inames = {},   -- vom Spiel gelernte Instanznamen { [instanceID] = Name } (nur lokal)
+        iicon = {},    -- gemerkte Symbole { [itemID] = Pfad }, vom Spiel gelesen (nur lokal)
         path = {},     -- Wegenetz { [welt] = { [zellKey] = Maske } }, siehe CodexPath.lua (nur lokal)
         fav = {},      -- Favoriten und Notizen { ["q123"] = { note, t } }, nur lokal
         dnotes = {},   -- Dev-Notizen { ["q123"] = { n = Text, t } }, nur lokal, nur mit Freewood-Dev und Bearbeitungsrecht
@@ -409,6 +410,41 @@ function Codex.QualityOf(itemID)
         return info.quality
     end
     return Codex.db.iq and Codex.db.iq[itemID] or nil
+end
+
+-- Itemdaten, die das Spiel liefert (Name, Qualitaet, Symbol), merken: nach einem Neustart sind sie sonst weg und die Listen
+-- zeigen erst wieder "#1234" und Fragezeichen, bis alles neu abgefragt ist. Das Symbol steht in db.iicon (hoechstens 12000 Eintraege).
+local MAX_ICONS = 12000
+function Codex.RememberItem(itemID, info)
+    if type(itemID) ~= "number" or type(info) ~= "table" or not Codex.db then return end
+    if info.name then NoteName(itemID, info.name) end
+    if info.quality then Codex.RememberQuality(itemID, info.quality) end
+    local icon = info.icon
+    if type(icon) == "string" and icon ~= "" and not Util.IsSecret(icon) then
+        local ic = Codex.db.iicon
+        if not ic then ic = {} Codex.db.iicon = ic end
+        if ic[itemID] ~= icon and (ic[itemID] ~= nil or (Codex.db.iiconN or 0) < MAX_ICONS) then
+            if ic[itemID] == nil then Codex.db.iiconN = (Codex.db.iiconN or 0) + 1 end
+            ic[itemID] = icon:sub(1, 120)
+        end
+    end
+end
+
+-- Gemerktes Symbol (Pfad) eines Items oder nil
+function Codex.IconOf(itemID)
+    local ic = Codex.db and Codex.db.iicon
+    return ic and ic[itemID] or nil
+end
+
+if Util.RequestItem and not Codex.itemHooked then
+    Codex.itemHooked = true
+    local baseRequest = Util.RequestItem
+    Util.RequestItem = function(itemID, callback)
+        return baseRequest(itemID, function(info)
+            if info then pcall(Codex.RememberItem, itemID, info) end
+            if callback then return callback(info) end
+        end)
+    end
 end
 
 Codex.AddCell = AddCell
