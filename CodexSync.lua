@@ -519,7 +519,7 @@ local function ParseEntries(body)
     if type(body) ~= "string" then
         return out
     end
-    for key, upd in body:gmatch("([uoqixtpzgh]%d+):([0-9a-z]+)") do
+    for key, upd in body:gmatch("([uoqixtpzghf]%d+):([0-9a-z]+)") do
         local nupd = FromB36(upd)
         if nupd and nupd > 0 and #key <= 12 and #out < MAX_DIGEST then
             out[#out + 1] = { key = key, upd = nupd }
@@ -898,7 +898,7 @@ function Sync:HandleDirect(name, t, body)
         self:ServeRecords(name, ParseEntries(list))
         return true
     elseif t == "B" then
-        local key, upd, i, n, piece = body:match("^([uoqixtpzgh]%d+)|([0-9a-z]+)|(%d+)/(%d+)|(.+)$")
+        local key, upd, i, n, piece = body:match("^([uoqixtpzghf]%d+)|([0-9a-z]+)|(%d+)/(%d+)|(.+)$")
         return self:ReceiveChunk(name, key, FromB36(upd), tonumber(i), tonumber(n), piece)
     end
     return false

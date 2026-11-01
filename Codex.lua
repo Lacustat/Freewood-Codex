@@ -3313,6 +3313,9 @@ function Codex:OnEnable()
     if self.Recipes then
         self.Recipes:Start()
     end
+    if self.Flight then
+        self.Flight:Start()
+    end
     if self.Sync then
         self.Sync:Init()
     end
@@ -3336,6 +3339,9 @@ function Codex:OnDisable()
     end
     if self.Recipes then
         self.Recipes:Stop()
+    end
+    if self.Flight then
+        self.Flight:Stop()
     end
     if self.Sync then
         self.Sync:Stop()

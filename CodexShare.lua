@@ -726,6 +726,26 @@ local function SanitizeTransportRecord(rec)
     return out
 end
 
+-- Flug (Flugmeister): von jedem Spieler gemessen
+local function SanitizeFlightRecord(rec)
+    local function Node(p)
+        if type(p) ~= "table" then return nil end
+        local c, tx, ty = Int(p.c, 0, 1000000), Int(p.tx, 0, 1000), Int(p.ty, 0, 1000)
+        if not (c and tx and ty) then return nil end
+        local out = { c = c, tx = tx, ty = ty, n = Text(p.n, 40) }
+        local m, x, y = Int(p.m, -1000000, 1000000), Frac(p.x), Frac(p.y)
+        if m and x and y then out.m, out.x, out.y = m, x, y end
+        return out
+    end
+    local a, b = Node(rec.a), Node(rec.b)
+    local t = Int(rec.t, 5, 3600)
+    if not (a and b and t) then return nil end
+    if a.c == b.c and a.tx == b.tx and a.ty == b.ty then return nil end
+    local out = { a = a, b = b, t = t, c = Int(rec.c, 0, 10000000) or 0, n = Int(rec.n, 1, 100000) or 1 }
+    if rec.f == "A" or rec.f == "H" then out.f = rec.f end
+    return out
+end
+
 -- Ortspunkt (Instanz-Eingang, Berg-Aufstieg, ...): von Berechtigten erfasst
 local function SanitizeSpotRecord(rec)
     local S = Codex.Spots
@@ -780,7 +800,7 @@ function Share.Sanitize(key, rec, upd)
     if type(key) ~= "string" or type(rec) ~= "table" then
         return nil
     end
-    local letter, num = key:match("^([uoqixtpzgh])(%d+)$")
+    local letter, num = key:match("^([uoqixtpzghf])(%d+)$")
     local id = num and Int(tonumber(num), 0, (letter == "p") and 65536000000 or 100000000)
     if not letter or not id then
         return nil
@@ -808,6 +828,8 @@ function Share.Sanitize(key, rec, upd)
         out = SanitizeTransportRecord(rec)
     elseif letter == "h" then
         out = SanitizeSpotRecord(rec)
+    elseif letter == "f" then
+        out = SanitizeFlightRecord(rec)
     else
         out = SanitizeXPRecord(rec)
     end
@@ -1038,6 +1060,12 @@ function Share.Scan(force)
             hash = (hash + id % 100003 * 17 + rec.upd % 1000003 + 103) % 2147483647
         end
     end
+    for id, rec in pairs(Codex.db.flight and Codex.db.flight.routes or {}) do
+        if type(id) == "number" and type(rec) == "table" and rec.upd and rec.a and rec.b then
+            list[#list + 1] = { key = "f" .. id, upd = rec.upd }
+            hash = (hash + id % 100003 * 23 + rec.upd % 1000003 + 109) % 2147483647
+        end
+    end
     for id, rec in pairs(Codex.db.spots or {}) do
         if type(id) == "number" and type(rec) == "table" and rec.upd then
             list[#list + 1] = { key = "h" .. id, upd = rec.upd }
@@ -1113,13 +1141,19 @@ end
 
 -- Eigener Datensatz zum Senden (bereinigt). Rueckgabe: record, upd
 function Share.OwnRecord(key)
-    local letter, num = tostring(key):match("^([uoqixtpzgh])(%d+)$")
+    local letter, num = tostring(key):match("^([uoqixtpzghf])(%d+)$")
     if not letter then
         return nil
     end
     local id = tonumber(num)
     if letter == "g" then
         local rec = Codex.db.transport and Codex.db.transport[id]
+        if type(rec) ~= "table" or not rec.upd then return nil end
+        local out = Share.Sanitize(key, rec, rec.upd)
+        return out, rec.upd
+    end
+    if letter == "f" then
+        local rec = Codex.db.flight and Codex.db.flight.routes and Codex.db.flight.routes[id]
         if type(rec) ~= "table" or not rec.upd then return nil end
         local out = Share.Sanitize(key, rec, rec.upd)
         return out, rec.upd
@@ -1320,6 +1354,18 @@ function Share.StoreRecord(name, rec)
         s.seen = time()
         if Codex.Transport then Codex.Transport.rev = (Codex.Transport.rev or 0) + 1 end
         FW:Fire("CODEX_TRANSPORT_CHANGED", rec.id)
+        return true
+    end
+    if rec.y == "f" then
+        -- Fluege: von jedem Spieler, je Absender begrenzt
+        if not old then
+            if (s.nf or 0) >= 600 then return false end
+            s.nf = (s.nf or 0) + 1
+        end
+        s.rec[key] = rec
+        s.seen = time()
+        if Codex.Flight then Codex.Flight.rev = (Codex.Flight.rev or 0) + 1 end
+        FW:Fire("CODEX_FLIGHT_CHANGED", rec.id)
         return true
     end
     if rec.y == "h" then
@@ -1867,7 +1913,7 @@ local function Rebuild()
                 xpRecs[#xpRecs + 1] = rec
             elseif rec.y == "t" then
                 ttkRecs[#ttkRecs + 1] = rec
-            elseif rec.y == "p" or rec.y == "z" or rec.y == "g" or rec.y == "h" then
+            elseif rec.y == "p" or rec.y == "z" or rec.y == "g" or rec.y == "h" or rec.y == "f" then
                 -- Wegenetz liegt schon in den gemeinsamen Daten (Codex.Path), Verkehrsverbindungen liest Codex.Transport
             else
                 local bucket = index[rec.y]
