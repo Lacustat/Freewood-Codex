@@ -7,6 +7,7 @@
 ## Dependencies: Freewood-Core
 ## OptionalDeps: Freewood-CodexData, Freewood-ForeverData
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
+## X-Wago-ID: bGoYmq60
 
 Locales.lua
 Codex.lua
