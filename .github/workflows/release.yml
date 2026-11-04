@@ -1,0 +1,22 @@
+yaml
+name: Deploy Addon
+
+on:
+  push:
+    tags:
+      - 'v*' # Startet vollautomatisch, sobald du ein Tag pushst, das mit v beginnt (z.B. v1.0.0)
+
+jobs:
+  release:
+    runs-on: Forever
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Package and Deploy
+        uses: BigWigsMods/packager@v2
+        env:
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+          WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
