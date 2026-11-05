@@ -7,6 +7,19 @@ if not FW then
 end
 
 FW:AddLocale("enUS", {
+    CODEX_OPT_TIPDROPV = "Creature tooltip: average loot value (vendor)",
+    CODEX_OPT_TIPDROPA = "Creature tooltip: average loot value (auction, needs Auction module)",
+    CODEX_TIP_DROP_VENDOR = "Avg. loot (vendor): %s",
+    CODEX_TIP_DROP_AH = "Avg. loot (auction): %s",
+    CODEX_OPT_TIPDROPG = "Creature tooltip: average gold per kill (coins only)",
+    CODEX_OPT_TIPDROPH = "Creature tooltip: average value per hour (loot value / fight time)",
+    CODEX_OPT_TIPDROPB = "Creature tooltip: most valuable drops",
+    CODEX_OPT_TIPDROPBN = "Number of drops shown: %d",
+    CODEX_OPT_TIPDROPK = "Creature tooltip: number of kills the values are based on",
+    CODEX_TIP_DROP_GOLD = "Avg. gold per kill: %s",
+    CODEX_TIP_DROP_HOUR = "Avg. per hour: %s (fight %.0f s, no travel)",
+    CODEX_TIP_DROP_BEST = "Drop: %s (%s, avg. %s)",
+    CODEX_TIP_DROP_KILLS = "Based on %d kills",
     CODEX_TITLE = "Database",
     CODEX_INSTANCE_UNKNOWN = "Instance #%d",
     CODEX_PROPS_BTN = "Properties",
@@ -470,6 +483,19 @@ FW:AddLocale("enUS", {
 })
 
 FW:AddLocale("deDE", {
+    CODEX_OPT_TIPDROPV = "Gegner-Tooltip: Ø Beutewert (Händler)",
+    CODEX_OPT_TIPDROPA = "Gegner-Tooltip: Ø Beutewert (Auktion, braucht Auktionsmodul)",
+    CODEX_TIP_DROP_VENDOR = "Ø Beute (Händler): %s",
+    CODEX_TIP_DROP_AH = "Ø Beute (Auktion): %s",
+    CODEX_OPT_TIPDROPG = "Gegner-Tooltip: Ø Gold pro Kill (nur Münzen)",
+    CODEX_OPT_TIPDROPH = "Gegner-Tooltip: Ø Wert pro Stunde (Beutewert / Kampfdauer)",
+    CODEX_OPT_TIPDROPB = "Gegner-Tooltip: wertvollste Drops",
+    CODEX_OPT_TIPDROPBN = "Anzahl gezeigter Drops: %d",
+    CODEX_OPT_TIPDROPK = "Gegner-Tooltip: Anzahl Kills, auf denen die Werte beruhen",
+    CODEX_TIP_DROP_GOLD = "Ø Gold pro Kill: %s",
+    CODEX_TIP_DROP_HOUR = "Ø pro Stunde: %s (Kampf %.0f s, ohne Laufwege)",
+    CODEX_TIP_DROP_BEST = "Drop: %s (%s, Ø %s)",
+    CODEX_TIP_DROP_KILLS = "Basis: %d Kills",
     CODEX_TITLE = "Datenbank",
     CODEX_INSTANCE_UNKNOWN = "Instanz #%d",
     CODEX_PROPS_BTN = "Eigenschaften",
