@@ -420,8 +420,12 @@ function Sync:SendHello()
     if next(learnedSelf) == nil then
         Broadcast("E|" .. SESSION_NONCE)
     end
-    return Broadcast(string.format("H|%d|%d", h, n)) > 0
+    local sent = Broadcast(string.format("H|%d|%d", h, n)) > 0
+    if Codex.Announce and Codex.Announce.SendDigest then pcall(Codex.Announce.SendDigest) end
+    return sent
 end
+
+Sync.Broadcast = Broadcast
 
 local function SessionAllowed()
     local now = Now()
@@ -762,6 +766,11 @@ function Sync:HandleMessage(channel, sender, text)
     if t == "T" and kind then
         if Codex.Trust then Codex.Trust.Receive(sender, body) end
         return true
+    end
+    -- Ankuendigungen und Versionsabfrage (CodexAnnounce.lua)
+    if (t == "N" or t == "G" or t == "P" or t == "W") and kind then
+        if Codex.Announce then return Codex.Announce.Receive(t, sender, body, kind) end
+        return false
     end
     if kind then
         if t == "H" then

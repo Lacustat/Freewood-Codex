@@ -957,3 +957,33 @@ FW:AddLocale("deDE", {
     CODEX_NAME_IMPORT_RESULT = "%d gespeichert, %d übersprungen",
     CODEX_NAME_CLOSE = "Schließen",
 })
+
+FW:AddLocale("enUS", {
+    ANN_TITLE = "Freewood announcement",
+    ANN_OK = "Understood",
+    ANN_FROM = "From %s",
+    ANN_FROM_RELAY = "From %s (forwarded, not confirmed)",
+    ANN_PRIVILEGED = "an authorised player",
+    ANN_VERSION_HEAD = "New version available. Please update:",
+    ANN_VERSION_TAIL = "Please download the new versions and restart the game.",
+    ANN_ERR_RIGHTS = "Only owners and moderators may send announcements.",
+    ANN_ERR_NOMODS = "No Freewood modules found.",
+    ANN_ERR_EMPTY = "The text is empty.",
+    ANN_ERR_LONG = "The text is too long.",
+    ANN_NOT_SENT = "Not sent: sharing is off or you are not in a guild, party or raid. The announcement is saved and will be passed on later.",
+})
+
+FW:AddLocale("deDE", {
+    ANN_TITLE = "Freewood Ankündigung",
+    ANN_OK = "Verstanden",
+    ANN_FROM = "Von %s",
+    ANN_FROM_RELAY = "Von %s (weitergeleitet, nicht bestätigt)",
+    ANN_PRIVILEGED = "einem Berechtigten",
+    ANN_VERSION_HEAD = "Neue Version verfügbar. Bitte aktualisiere:",
+    ANN_VERSION_TAIL = "Bitte lade die neuen Versionen herunter und starte das Spiel neu.",
+    ANN_ERR_RIGHTS = "Nur Eigentümer und Moderatoren dürfen Ankündigungen senden.",
+    ANN_ERR_NOMODS = "Keine Freewood-Module gefunden.",
+    ANN_ERR_EMPTY = "Der Text ist leer.",
+    ANN_ERR_LONG = "Der Text ist zu lang.",
+    ANN_NOT_SENT = "Nicht gesendet: Teilen ist aus oder du bist in keiner Gilde, Gruppe oder keinem Schlachtzug. Die Ankündigung ist gespeichert und wird später weitergereicht.",
+})
