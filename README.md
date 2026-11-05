@@ -1,6 +1,6 @@
 # Freewood-Codex
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.43.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.43.2 · Interface 16001 (World of Warcraft: Forever).
 
 ![Codex_Items](https://github.com/Lacustat/Freewood-OctoWoW-Bilder/blob/main/database-item.jpg)
 
@@ -28,6 +28,7 @@ Die Datenbank der Freewood-Familie. Sie lernt beim Spielen Quests, Kreaturen, Ob
 
 ### Befehle
 - `/fwcodex`: Reiter öffnen, Diagnose
+- `/fwcodex share`: Teilen prüfen (Wege, Zähler, bekannte Spieler); `/fwcodex share log`: gesendete und empfangene Nachrichten im Chat; `/fwcodex share channel on|off`: Test des geheimen Kanals mit Protokoll
 - `/fwflight`: Stand der Flugerfassung und ob die Flug-Funktionen des Spiels da sind
 - `/fwwege`: Wegenetz auf der Karte
 - `/fwpos`, `/fwrolle`, `/fwkatalog`, `/fwblock`: Diagnose und Werkzeuge
@@ -64,6 +65,7 @@ The database of the Freewood family. It learns quests, creatures, objects, items
 
 ### Commands
 - `/fwcodex`: Reiter öffnen, Diagnose
+- `/fwcodex share`: Teilen prüfen (Wege, Zähler, bekannte Spieler); `/fwcodex share log`: gesendete und empfangene Nachrichten im Chat; `/fwcodex share channel on|off`: Test des geheimen Kanals mit Protokoll
 - `/fwflight`: Stand der Flugerfassung und ob die Flug-Funktionen des Spiels da sind
 - `/fwwege`: Wegenetz auf der Karte
 - `/fwpos`, `/fwrolle`, `/fwkatalog`, `/fwblock`: Diagnose und Werkzeuge

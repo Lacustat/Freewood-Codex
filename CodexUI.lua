@@ -3681,6 +3681,8 @@ SlashCmdList["FREEWOODCODEX"] = function(msg)
             Codex.Sync:SetEnabled(msg == "share on")
             Codex.Sync:Debug()
         end
+    elseif msg == "share channel on" or msg == "share channel off" then
+        if Codex.Sync then Codex.Sync:SetChannel(msg == "share channel on") end
     elseif msg == "share" then
         if Codex.Sync then Codex.Sync:Debug() end
     elseif msg == "time" then

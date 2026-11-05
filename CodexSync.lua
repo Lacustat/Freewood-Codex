@@ -248,6 +248,9 @@ local function Raw(dist, target, text)
     if api and api.SendAddonMessage then
         local ok, res = pcall(api.SendAddonMessage, PREFIX, text, dist, target)
         state.stats.lastResult = tostring(ok and res or "Fehler")
+        if state.chanTest and dist == "CHANNEL" then
+            FW:Print(string.format("|cffffcc00Kanaltest|r senden an Kanal %s: Aufruf ok=%s, Antwort=%s", tostring(target), tostring(ok), tostring(res)))
+        end
         if ok and res ~= false and (type(res) ~= "number" or res == 0) then
             state.stats.tx = state.stats.tx + 1
             local t = text:sub(1, 1)
@@ -940,7 +943,7 @@ function Sync:JoinGlobal()
         state.status.global = "failed"
         return
     end
-    if type(ChatFrame_RemoveChannel) == "function" then
+    if type(ChatFrame_RemoveChannel) == "function" and not state.chanTest then
         for i = 1, (_G.NUM_CHAT_WINDOWS or 10) do
             local frame = _G["ChatFrame" .. i]
             if frame then
@@ -964,6 +967,45 @@ function Sync:LeaveGlobal()
         pcall(LeaveChannelByName, GLOBAL_CHANNEL)
     end
     state.status.global = "off"
+end
+
+-- Kanaltest (/fwcodex share channel on|off): tritt dem Kanal bei, zeigt ihn im Chat und protokolliert Beitritt,
+-- Kanalnummer, Sendeergebnisse und die Meldungen des Spiels (z. B. "Dieser Vorgang ist in diesem Kanal nicht erlaubt").
+function Sync:SetChannel(on)
+    Codex.db.settings.shareChannel = on and true or false
+    state.chanTest = on and true or false
+    if on then
+        if not self:IsEnabled() then
+            FW:Print("Kanaltest: Teilen ist aus. Zuerst /fwcodex share on")
+            Codex.db.settings.shareChannel = false
+            state.chanTest = false
+            return
+        end
+        state.log = true
+        FW:Print("|cffffcc00Kanaltest an|r: Protokoll an, Kanal wird beigetreten und bleibt im Chat sichtbar.")
+        local ok, a, b = pcall(JoinChannelByName, GLOBAL_CHANNEL)
+        FW:Print(string.format("Kanaltest: JoinChannelByName ok=%s, Antwort=%s/%s", tostring(ok), tostring(a), tostring(b)))
+        self:JoinGlobal()
+        C_Timer.After(4, function()
+            local id = GetChannelName and GetChannelName(GLOBAL_CHANNEL)
+            FW:Print(string.format("Kanaltest: Kanal %s hat die Nummer %s (Status %s)", GLOBAL_CHANNEL, tostring(id), tostring(state.status.global)))
+            if state.chanTest then self:SendHello() end
+        end)
+    else
+        FW:Print("Kanaltest aus: Kanal wird verlassen.")
+        self:LeaveGlobal()
+    end
+    FW:Fire("CODEX_SYNC_CHANGED")
+end
+
+function Sync:OnChannelNotice(a, b, c, d, e, f)
+    if not state.chanTest then return end
+    FW:Print(string.format("|cffffcc00Kanaltest Meldung|r %s | %s | %s | %s | %s", tostring(a), tostring(b), tostring(c), tostring(d), tostring(e)))
+end
+
+function Sync:OnUIError(a, b)
+    if not state.chanTest then return end
+    FW:Print(string.format("|cffffcc00Kanaltest Fehlermeldung|r %s %s", tostring(a), tostring(b)))
 end
 
 function Sync:SetEnabled(on)
@@ -1045,6 +1087,10 @@ function Sync:Start()
         pcall(api.RegisterAddonMessagePrefix, PREFIX)
     end
     FW:RegisterEvent("CHAT_MSG_ADDON", self.OnAddonMessage, self)
+    FW:RegisterEvent("CHAT_MSG_CHANNEL_NOTICE", self.OnChannelNotice, self)
+    FW:RegisterEvent("CHAT_MSG_CHANNEL_NOTICE_USER", self.OnChannelNotice, self)
+    FW:RegisterEvent("UI_ERROR_MESSAGE", self.OnUIError, self)
+    FW:RegisterEvent("CHAT_MSG_SYSTEM", self.OnUIError, self)
     FW:RegisterEvent("GROUP_ROSTER_UPDATE", self.OnGroupChanged, self)
     FW:On("CODEX_CHANGED", function(_, kind, id)
         Sync:OnChanged(kind, id)
@@ -1086,6 +1132,10 @@ function Sync:Stop()
     self.started = false
     generation = generation + 1
     FW:UnregisterEvent("CHAT_MSG_ADDON", self)
+    FW:UnregisterEvent("CHAT_MSG_CHANNEL_NOTICE", self)
+    FW:UnregisterEvent("CHAT_MSG_CHANNEL_NOTICE_USER", self)
+    FW:UnregisterEvent("UI_ERROR_MESSAGE", self)
+    FW:UnregisterEvent("CHAT_MSG_SYSTEM", self)
     FW:UnregisterEvent("GROUP_ROSTER_UPDATE", self)
     FW:Off("CODEX_CHANGED", self)
     state.queue = {}
@@ -1140,6 +1190,15 @@ function Sync:Debug()
     FW:Print("Gesendet nach Art: " .. Types(st.txType))
     FW:Print("Empfangen nach Art: " .. Types(st.rxType))
     FW:Print(string.format("Bekannte Spieler (letzte Stunde): %d", self:HeardCount()))
+    -- wer genau, und wie viele in der Gilde online sind (zum Vergleich)
+    local now = Now()
+    for name, p in pairs(state.peers) do
+        FW:Print(string.format("  %s: %s, vor %d s, %s Datensaetze", tostring(name), tostring(p.kind), math.floor(now - (p.t or now)), tostring(p.count or "?")))
+    end
+    if IsInGuild and IsInGuild() and GetNumGuildMembers then
+        local ok, total, online = pcall(GetNumGuildMembers)
+        if ok then FW:Print(string.format("Gilde: %s Mitglieder, %s online", tostring(total), tostring(online))) end
+    end
 end
 
 function Sync:Stats()
