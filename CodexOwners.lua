@@ -16,8 +16,8 @@ if not NS then
 end
 
 NS.Owners = {
-    "Yuto-ClassicBetaPvP2",
     "Aroki Steel",
     "Lujinja Steel",
-    "Lujinja-ClassicBetaPvE",
+    "Pinky Freewood",
+    "Dr Freewood",
 }
