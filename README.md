@@ -1,7 +1,9 @@
-# Freewood-Forever-Codex
+# Freewood-Codex
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.43.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.43.1 · Interface 16001 (World of Warcraft: Forever).
+
 ![Codex_Items](https://github.com/Lacustat/Freewood-OctoWoW-Bilder/blob/main/database-item.jpg)
+
 ## Inhalt · Contents
 - [Deutsch](#deutsch)
 - [English](#english)

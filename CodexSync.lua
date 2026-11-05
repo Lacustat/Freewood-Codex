@@ -1,7 +1,8 @@
 -- Freewood-Codex: Daten mit anderen Spielern teilen (Addon-Nachrichten)
 --
--- EIN Schalter (db.settings.share). Eingeschaltet wird ueber Gilde, Gruppe, Schlachtzug und einen
--- geheimen Kanal ("FreewoodCodex", aus allen Chatfenstern ausgeblendet) gerufen und getauscht.
+-- EIN Schalter (db.settings.share). Eingeschaltet wird ueber Gilde, Gruppe und Schlachtzug gerufen und
+-- getauscht. Der geheime Kanal ("FreewoodCodex") ist AUS (db.settings.shareChannel, Standard false):
+-- Forever erlaubt Addons dort kein Senden ("Dieser Vorgang ist in diesem Kanal nicht erlaubt").
 -- Gesendet werden nur eigene Beobachtungen, keine Charakternamen, keine persoenlichen Angaben.
 --
 -- Ablauf (alles "ziehen", nie ungefragt grosse Datenmengen schieben):
@@ -336,6 +337,10 @@ local function InstanceGroup()
     return _G.LE_PARTY_CATEGORY_INSTANCE and IsInGroup and IsInGroup(_G.LE_PARTY_CATEGORY_INSTANCE)
 end
 
+function Sync:ChannelWanted()
+    return Codex.db ~= nil and Codex.db.settings ~= nil and Codex.db.settings.shareChannel == true
+end
+
 function Sync:Distribution(kind)
     if kind == "guild" then
         if IsInGuild and IsInGuild() then
@@ -356,7 +361,7 @@ function Sync:Distribution(kind)
             return "RAID"
         end
     elseif kind == "global" then
-        if GetChannelName then
+        if self:ChannelWanted() and GetChannelName then
             local id = GetChannelName(GLOBAL_CHANNEL)
             if type(id) == "number" and id > 0 then
                 return "CHANNEL", id
@@ -912,6 +917,15 @@ function Sync:JoinGlobal()
     if not self:IsEnabled() then
         return
     end
+    if not self:ChannelWanted() then
+        -- Kanal nicht gewuenscht: ein frueher beigetretener wird verlassen
+        local cur = GetChannelName and GetChannelName(GLOBAL_CHANNEL)
+        if type(cur) == "number" and cur > 0 then
+            self:LeaveGlobal()
+        end
+        state.status.global = "off"
+        return
+    end
     local id = GetChannelName and GetChannelName(GLOBAL_CHANNEL)
     if type(id) == "number" and id > 0 then
         state.status.global = "ok"
@@ -1158,7 +1172,7 @@ function Sync:OnEnteringWorld()
     if self:IsEnabled() then
         if not self.started then
             self:Start()
-        elseif state.status.global ~= "ok" then
+        elseif state.status.global ~= "ok" and self:ChannelWanted() then
             C_Timer.After(5, function()
                 if Sync.started then
                     Sync:JoinGlobal()

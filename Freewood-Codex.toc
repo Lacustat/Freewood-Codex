@@ -3,7 +3,7 @@
 ## Notes: Learns quests, creatures and drops while you play: who gives and takes a quest, rewards, objectives, drop chances.
 ## Notes-deDE: Lernt beim Spielen Quests, Kreaturen und Beute: wer eine Quest vergibt und annimmt, Belohnungen, Ziele, Drop-Chancen.
 ## Author: Lacustat
-## Version: 0.43.0
+## Version: 0.43.1
 ## Dependencies: Freewood-Core
 ## OptionalDeps: Freewood-CodexData, Freewood-ForeverData
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
