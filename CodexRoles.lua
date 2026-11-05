@@ -131,8 +131,41 @@ end
 ------------------------------------------------------------------------
 
 -- Gibt die Einheit/das Objekt zurueck (oder nil), vermerkt Rolle, Namen, Titel und Ort (hoechstens alle 5 s je Rolle)
-function Roles:Mark(role, allowObject)
-    local kind, id, name, unit = Resolve(allowObject, role == "mailbox")
+-- Lehrerfenster: das Tier-Training (Jaegerpets) loest ebenfalls TRAINER_SHOW aus, dann ist "npc" leer und das Ziel
+-- ein beliebiger Mob/NPC. Darum zaehlt nur "npc"; das Ziel nur, wenn sein Titel ein Lehrer der eigenen Klasse ist.
+local function ResolveTrainer()
+    local guid = UnitGUID and UnitGUID("npc")
+    local kind, id = Codex.ParseGUID(guid)
+    if kind == "npc" then
+        return kind, id, UnitName and Str((UnitName("npc")), 60) or nil, "npc"
+    end
+    guid = UnitGUID and UnitGUID("target")
+    kind, id = Codex.ParseGUID(guid)
+    if kind ~= "npc" then
+        return nil
+    end
+    if UnitCanAttack and UnitCanAttack("player", "target") then
+        return nil
+    end
+    local cls = Codex.ClassOfTitle(ReadTitle("target"))
+    local tok
+    if UnitClass then
+        local _, t = UnitClass("player")
+        tok = t
+    end
+    if not cls or cls ~= tok then
+        return nil
+    end
+    return kind, id, UnitName and Str((UnitName("target")), 60) or nil, "target"
+end
+
+function Roles:Mark(role, allowObject, trainer)
+    local kind, id, name, unit
+    if trainer then
+        kind, id, name, unit = ResolveTrainer()
+    else
+        kind, id, name, unit = Resolve(allowObject, role == "mailbox")
+    end
     if not kind then
         return nil
     end
@@ -506,6 +539,12 @@ local function TrainerSpell(i, info)
     return nil
 end
 
+-- Untertitel eines Zaubers ist nicht immer ein Rang ("30 Sek. Abklingzeit", "20 m Reichweite"): nur "Rang N" / "Rank N" zaehlt
+local function RankOK(text)
+    return type(text) == "string" and (text:find("^[Rr]ang %d+") or text:find("^[Rr]ank %d+")) and true or false
+end
+Codex.RankOK = RankOK
+
 local function SpellRank(id)
     local text
     if C_Spell and C_Spell.GetSpellSubtext then
@@ -515,7 +554,8 @@ local function SpellRank(id)
         local ok, v = pcall(GetSpellSubtext, id)
         text = ok and v or nil
     end
-    return Str(text, 30)
+    text = Str(text, 30)
+    return RankOK(text) and text or nil
 end
 
 function Codex.SpellRank(id)
@@ -554,7 +594,8 @@ local function TrainerRank(i)
         if type(line) == "table" then
             local text = Str(line.rightText, 30)
             if text and text:find("%d") and #text <= 20 then
-                return (text:gsub("^%(", ""):gsub("%)$", ""))
+                local t = text:gsub("^%(", ""):gsub("%)$", "")
+                if RankOK(t) then return t end
             end
         end
     end
@@ -564,7 +605,7 @@ end
 function Roles:ScanTrainer()
     local trade = TrainerCall("IsTradeskillTrainer")
     local role = (trade and trade[1] == true) and "proftrainer" or "classtrainer"
-    local ent = self:Mark(role)
+    local ent = self:Mark(role, false, true)
     if not ent then
         return
     end
@@ -577,7 +618,9 @@ function Roles:ScanTrainer()
     ent.tr = ent.tr or {}
     if Codex.LearnPlanReset then Codex.LearnPlanReset() end
     -- Klasse des Spielers merken: damit gehoert der Lehrer auch dann zu einer Klasse, wenn der Titel unbekannt ist
-    if role == "classtrainer" and not ent.trc then
+    local ti = type(ent.ti) == "string" and ent.ti:lower() or ""
+    local weaponMaster = ti:find("waffenmeister", 1, true) or ti:find("weapon", 1, true) or ti:find("reit", 1, true) or ti:find("riding", 1, true)
+    if role == "classtrainer" and not ent.trc and not weaponMaster then
         local token
         if UnitClass then
             local _, t = UnitClass("player")
@@ -608,6 +651,7 @@ function Roles:ScanTrainer()
             category, rank = rank, nil
         end
         name, rank = Str(name, 60), Str(rank, 30)
+        if rank and not RankOK(rank) then rank = nil end
         local sp, source
         if name and category ~= "header" then
             sp, source = TrainerSpell(i, r[1])
@@ -638,6 +682,9 @@ function Roles:ScanTrainer()
             if rec and sp then
                 rec.sp = sp
                 rec.rk = rank or rec.rk
+            end
+            if rec and rec.rk and not RankOK(rec.rk) then
+                rec.rk = rank -- aeltere Fehlerfassung: Abklingzeit/Reichweite statt Rang
             end
             if rec then
                 if lv then
@@ -767,6 +814,38 @@ local SIMPLE = {
     MAIL_SHOW = "mailbox",
 }
 
+-- Alte Fehleintraege bereinigen (Tier-Training und Hintergrundziel liessen Mobs/NPCs zu "Klassenlehrern" werden)
+function Roles:Cleanup()
+    if self.cleaned or not (Codex.db and Codex.db.units) then
+        return 0
+    end
+    self.cleaned = true
+    local removed = 0
+    for id, u in pairs(Codex.db.units) do
+        local ro = type(u) == "table" and u.ro
+        if ro and (ro.classtrainer or 0) > 0 then
+            local rows = 0
+            if type(u.tr) == "table" then
+                for _ in pairs(u.tr) do rows = rows + 1 end
+            end
+            local isMob = u.k ~= nil or u.f ~= nil           -- Kills/Familie: ein Gegner, kein Lehrer
+            if rows == 0 or isMob then                        -- ohne Lehrerzeilen oder ein Gegner: kein Klassenlehrer
+                ro.classtrainer = nil
+                u.trc = nil
+                u.tr = nil
+                removed = removed + 1
+            end
+            if u.tr then
+                for _, rec in pairs(u.tr) do
+                    if rec.rk and not RankOK(rec.rk) then rec.rk = nil end
+                end
+            end
+        end
+    end
+    Roles.cleanupRemoved = removed
+    return removed
+end
+
 local EVENTS = { "MERCHANT_SHOW", "MERCHANT_UPDATE", "MERCHANT_CLOSED", "TAXIMAP_OPENED", "TRAINER_SHOW", "TRAINER_UPDATE", "TRAINER_CLOSED",
     "GOSSIP_SHOW", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" }
 
@@ -776,6 +855,7 @@ local function Handler(event)
         if not (Codex.db and Codex.db.settings and Codex.db.settings.enabled) then
             return
         end
+        if not Roles.cleaned then pcall(Roles.Cleanup, Roles) end
         Codex.Safe(function(...)
             if event == "MERCHANT_SHOW" then
                 visit.wares = nil
