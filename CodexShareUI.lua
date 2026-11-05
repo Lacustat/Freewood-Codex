@@ -84,6 +84,7 @@ local function Build(parent)
 end
 
 UI:RegisterSettingsSection("codex-share", {
+    category = "database",
     order = 105,
     height = 360,
     build = Build,

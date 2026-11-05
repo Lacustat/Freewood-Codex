@@ -1169,6 +1169,7 @@ end
 local UI = FW.UI
 if UI and UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("codex-path", {
+        category = "database",
         order = 107,
         height = 200,
         build = function(parent)

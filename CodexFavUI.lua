@@ -86,6 +86,7 @@ end
 
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("codex-fav", {
+        category = "database",
         order = 107,
         height = 110,
         build = function(parent)

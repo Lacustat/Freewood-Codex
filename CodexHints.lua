@@ -389,6 +389,7 @@ end, Hints)
 
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("codex-hints", {
+        category = "quest",
         order = 106,
         height = 300,
         build = function(parent)
