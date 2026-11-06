@@ -376,6 +376,7 @@ end, Hints)
 FW:RegisterEvent("CHAT_MSG_SKILL", function(_, text)
     local pat, order = SkillPattern()
     if type(text) ~= "string" or not pat then return end
+    if FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(text) then return end   -- geheime Chattexte (Sperre) nicht anfassen
     local caps = { text:match(pat) }
     if #caps == 0 then return end
     local skill, value = caps[1], caps[2]
