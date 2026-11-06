@@ -1,0 +1,5 @@
+<Bindings>
+    <Binding name="FREEWOOD_CODEX_TAB" header="FREEWOOD_CODEX" category="ADDONS">
+        Freewood_ToggleTab("codex")
+    </Binding>
+</Bindings>
