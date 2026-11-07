@@ -165,6 +165,12 @@ end
 -- Flug messen
 ------------------------------------------------------------------------
 
+-- Zeitanzeige "m:ss"
+function Flight.Duration(sec)
+    sec = math.floor(tonumber(sec) or 0)
+    return string.format("%d:%02d", math.floor(sec / 60), sec % 60)
+end
+
 local function OnTake(slot)
     local s = state.slot and state.slot[slot]
     if not s or not state.cur then return end
@@ -177,10 +183,11 @@ end
 
 local function Finish(p, now)
     state.pending = nil
+    Flight.flight = nil
     local f = DB()
     if not f then return end
     local dur = now - p.t0
-    if dur < MIN_SECS then return end
+    if dur < MIN_SECS or not p.to then return end
     local a, b = NodeOf(p.from), NodeOf(p.to)
     if not (a and b) then return end
     -- Landung: Ort des Ziels merken
@@ -212,13 +219,32 @@ local function Finish(p, now)
     FW:Fire("CODEX_CHANGED", "flight", id)
 end
 
+-- Flug fuer das Flugfenster: Flight.flight = { t0, exp (erwartete Sekunden oder nil), name }
+local function StartWindow(p, now)
+    local exp
+    if p.to and p.from and Flight.EstimateSecs then
+        local ok, v = pcall(Flight.EstimateSecs, p.from, p.to)
+        if ok and type(v) == "number" and v > 0 then exp = v end
+    end
+    local nd = p.to and NodeOf(p.to)
+    Flight.flight = { t0 = now, exp = exp, name = nd and nd.n or nil }
+end
+
 local function Tick()
-    local p = state.pending
-    if not p then return end
     local now = Clock()
     local on = _G.UnitOnTaxi and _G.UnitOnTaxi("player") and true or false
+    local p = state.pending
+    if not p then
+        -- Flug ohne erfassten Abflug-Aufruf (z. B. Hook auf TakeTaxiNode greift nicht): Zeit trotzdem messen und anzeigen
+        if on then
+            state.pending = { from = state.cur, to = nil, quote = 0, money0 = _G.GetMoney and _G.GetMoney() or 0, asked = now, started = true, t0 = now }
+            StartWindow(state.pending, now)
+        end
+        return
+    end
     if on and not p.started then
         p.started, p.t0 = true, now
+        StartWindow(p, now)
     end
     if p.started then
         if on then
@@ -231,6 +257,7 @@ local function Tick()
         end
     elseif now - p.asked > 15 then
         state.pending = nil      -- Flug nicht angetreten
+        Flight.flight = nil
     end
 end
 
@@ -384,7 +411,7 @@ function Flight:Start()
             acc = acc + (elapsed or 0)
             if acc < 1 then return end
             acc = 0
-            if state.pending then pcall(Tick) end
+            if state.pending or (_G.UnitOnTaxi and _G.UnitOnTaxi("player")) then pcall(Tick) end
         end)
     end
 end
@@ -392,6 +419,7 @@ end
 function Flight:Stop()
     FW:UnregisterEvent("TAXIMAP_OPENED", Flight)
     state.pending = nil
+    Flight.flight = nil
     self.started = false
 end
 
