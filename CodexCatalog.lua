@@ -8,12 +8,15 @@
 --   /fwquestkatalog              setzt den Lauf dort fort, wo er aufgehoert hat (Quest-IDs 1 bis 120000)
 --   /fwquestkatalog <von> <bis>  nur diesen Bereich
 --   /fwquestkatalog stop|status|neu
---   /fwkatalog <q|i|n> [von bis | stop | status | neu | test <id>]   dasselbe fuer Quests (q), Items (i) und NPCs (n)
+--   /fwkatalog <q|i|n|s> [von bis | stop | status | neu | test <id>]   dasselbe fuer Quests (q), Items (i), NPCs (n) und Zauber (s)
+--
+-- Zauber: C_Spell.GetSpellInfo (Name, Symbol) und C_Spell.GetSpellSubtext (Rang), ohne Beschreibung. Der Katalog sagt nur,
+-- welche Zauber-IDs es gibt; wer sie wirkt, lernt der Codex beim Kaempfen (Codex.Abilities).
 --
 -- Items: C_Item.RequestLoadItemDataByID, danach GetItemInfo (Qualitaet, Stufe, Mindeststufe, Verkaufspreis, Name).
 -- NPCs: es gibt keine Abfrage nur mit ID; der Name kommt aus dem Tooltip eines Kreatur-Links (C_TooltipInfo.GetHyperlink).
 --
--- Ablage: db.cat = { loc = Sprache, pos/posi/posn = naechste ID, q = { [id] = "Stufe|Titel" }, i = { [id] = "Qualitaet|Stufe|Mindeststufe|Preis|Name" }, n = { [id] = "Name" } }. Die Startdaten (Freewood-ForeverData)
+-- Ablage: db.cat = { loc = Sprache, pos/posi/posn = naechste ID, q = { [id] = "Stufe|Titel" }, i = { [id] = "Qualitaet|Stufe|Mindeststufe|Preis|Name" }, n = { [id] = "Name" }, s = { [id] = "Symbol|Rang|Name" } }. Die Startdaten (Freewood-ForeverData)
 -- bringen einen fertigen Katalog mit (extra.cat); der eigene geht vor.
 
 local ADDON, NS = ...
@@ -43,6 +46,7 @@ local function Store()
     c.q = c.q or {}
     c.i = c.i or {}
     c.n = c.n or {}
+    c.s = c.s or {}
     if not c.loc then c.loc = _G.GetLocale and _G.GetLocale() or nil end
     return c
 end
@@ -160,6 +164,37 @@ local function ReadItem(id)
     return string.format("%d|%d|%d|%d|%s", N(quality), N(ilvl), N(minLvl), N(sell), CleanName(name))
 end
 
+-- Zauber: C_Spell.GetSpellInfo liefert Name und Symbol, GetSpellSubtext den Rang (beides oft schon ohne Anfrage)
+local function ReqSpell(id)
+    local CS = _G.C_Spell
+    if CS and CS.RequestLoadSpellData then pcall(CS.RequestLoadSpellData, id) end
+end
+
+local function ReadSpell(id)
+    local CS = _G.C_Spell
+    local ok, info = pcall(CS.GetSpellInfo, id)
+    if not (ok and type(info) == "table") then return nil end
+    local name = info.name
+    if type(name) ~= "string" or name == "" then return nil end
+    local icon = tonumber(info.iconID or info.originalIconID) or 0
+    local rank = ""
+    if CS.GetSpellSubtext then
+        local ok2, r = pcall(CS.GetSpellSubtext, id)
+        if ok2 and type(r) == "string" then rank = CleanName(r) end
+    end
+    return string.format("%d|%s|%s", math.floor(icon), rank, CleanName(name))
+end
+
+-- Zauber aus dem Katalog: Name, Rang, Symbol-ID
+function Cat.GetSpell(id)
+    local db = Codex.db
+    local v = db and db.cat and db.cat.s and db.cat.s[id]
+    if type(v) ~= "string" then return nil end
+    local icon, rank, name = v:match("^(%d+)|([^|]*)|(.+)$")
+    if not name then return nil end
+    return name, (rank ~= "" and rank or nil), tonumber(icon)
+end
+
 local function UnitLink(id)
     return "unit:Creature-0-0-0-0-" .. id .. "-0000000000"
 end
@@ -189,6 +224,8 @@ local KINDS = {
         ready = function() return (_G.C_Item and (_G.C_Item.GetItemInfo or _G.C_Item.RequestLoadItemDataByID)) or _G.GetItemInfo end },
     n = { store = "n", pos = "posn", max = 250000, req = ReqNpc, read = ReadNpc, label = "NPCs",
         ready = function() return _G.C_TooltipInfo and _G.C_TooltipInfo.GetHyperlink end },
+    s = { store = "s", pos = "poss", max = 600000, req = ReqSpell, read = ReadSpell, label = "Zauber", batch = 100, harvest = 1.5, pause = 0.25,
+        ready = function() local CS = _G.C_Spell return CS and CS.GetSpellInfo end },
 }
 Cat.KINDS = KINDS
 
@@ -264,19 +301,19 @@ local function Step(job)
     end
     local K = KINDS[job.kind]
     local a = job.nextID
-    local b = math.min(a + BATCH - 1, job.hi)
+    local b = math.min(a + (K.batch or BATCH) - 1, job.hi)
     for id = a, b do K.req(id) end
     job.nextID = b + 1
     job.pending = job.pending + 1
     local c = Store()
     if job.resume and c then c[K.pos] = job.nextID end
-    C_Timer.After(HARVEST, function() Harvest(job, a, b) end)
+    C_Timer.After(K.harvest or HARVEST, function() Harvest(job, a, b) end)
     -- Fortschritt alle 10000 IDs
     if math.floor(a / 10000) ~= math.floor(b / 10000) then
         Say(string.format("%s: ID %d von %d ...", K.label, b, job.hi))
     end
     if job.nextID <= job.hi then
-        C_Timer.After(PAUSE, function() Step(job) end)
+        C_Timer.After(K.pause or PAUSE, function() Step(job) end)
     end
 end
 
@@ -371,7 +408,7 @@ local function Handle(kind, msg)
     end
     if ok then
         Say(string.format("%s: Lauf %d-%d gestartet (gedrosselt, ca. %d Anfragen pro Sekunde). Anhalten: stop. Du kannst weiterspielen.",
-            K.label, a, b, math.floor(BATCH / PAUSE)))
+            K.label, a, b, math.floor((K.batch or BATCH) / (K.pause or PAUSE))))
     elseif a == "busy" then
         Say("es laeuft schon ein Lauf (stop zum Anhalten).")
     elseif a == "api" then
@@ -388,6 +425,6 @@ SLASH_FREEWOODCAT1 = "/fwkatalog"
 SlashCmdList["FREEWOODCAT"] = function(msg)
     msg = (msg or ""):lower():gsub("^%s+", "")
     local k, rest = msg:match("^(%a)%s*(.*)$")
-    if k == "q" or k == "i" or k == "n" then Handle(k, rest) return end
-    Say("benutze /fwkatalog q|i|n [von bis | stop | status | neu | test <id>]  (q = Quests, i = Items, n = NPCs)")
+    if k == "q" or k == "i" or k == "n" or k == "s" then Handle(k, rest) return end
+    Say("benutze /fwkatalog q|i|n|s [von bis | stop | status | neu | test <id>]  (q = Quests, i = Items, n = NPCs, s = Zauber)")
 end

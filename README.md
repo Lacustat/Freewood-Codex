@@ -1,6 +1,6 @@
 # Freewood-Codex
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.46.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.46.1 · Interface 16001 (World of Warcraft: Forever).
 
 ![Codex_Items](https://github.com/Lacustat/Freewood-OctoWoW-Bilder/blob/main/database-item.jpg)
 
@@ -20,7 +20,7 @@ Die Datenbank der Freewood-Familie. Sie lernt beim Spielen Quests, Kreaturen, Ob
 - Teilen: neue Daten gehen automatisch an andere Spieler mit dem Addon (abschaltbar). Änderungen von Berechtigten haben Vorrang.
 - Wegenetz: zeichnet auf, wo man zu Fuß gelaufen ist; der Levelplan rechnet damit Laufzeiten und Laufwege.
 - Verbindungen: Schiffe, Zeppeline, U-Bahnen und Portale (von Berechtigten erfasst).
-- Flüge: liest die Flugkarte, misst jeden Flug (Dauer, Preis) und teilt die Strecken. Es gibt keine mitgelieferten Flugdaten; alles stammt aus eigenen Flügen oder von anderen Spielern. Ungeprüft im Spiel. Ab 0.46.0 mit Flugfenster: beim Flug öffnet sich ein kleines Fenster mit dem Ziel und der Flugzeit. Ist die Dauer bekannt, läuft ein Balken leer; sonst wird die Zeit gemessen, hochgezählt und für das nächste Mal gespeichert. Das Fenster ist verschiebbar und in den Einstellungen (Datenbank > Flüge) abschaltbar.
+- Flüge: liest die Flugkarte, misst jeden Flug (Dauer, Preis) und teilt die Strecken. Es gibt keine mitgelieferten Flugdaten; alles stammt aus eigenen Flügen oder von anderen Spielern. Ungeprüft im Spiel. Ab 0.46.1 mit Flugfenster: beim Flug öffnet sich ein kleines Fenster mit dem Ziel und der Flugzeit. Ist die Dauer bekannt, läuft ein Balken leer; sonst wird die Zeit gemessen, hochgezählt und für das nächste Mal gespeichert. Das Fenster ist verschiebbar und in den Einstellungen (Datenbank > Flüge) abschaltbar.
 - Item-Gedächtnis: Name, Qualität und Symbol bleiben nach einem Neustart erhalten, damit die Listen nicht wieder „#1234“ zeigen. Ungeprüft im Spiel.
 
 ### Abhängigkeiten
@@ -32,7 +32,7 @@ Die Datenbank der Freewood-Familie. Sie lernt beim Spielen Quests, Kreaturen, Ob
 - `/fwcodex share`: Teilen prüfen (Wege, Zähler, bekannte Spieler); `/fwcodex share log`: gesendete und empfangene Nachrichten im Chat; `/fwcodex share channel on|off`: Test des geheimen Kanals mit Protokoll
 - `/fwflight`: Stand der Flugerfassung und ob die Flug-Funktionen des Spiels da sind
 - `/fwwege`: Wegenetz auf der Karte
-- `/fwpos`, `/fwrolle`, `/fwkatalog`, `/fwblock`: Diagnose und Werkzeuge
+- `/fwpos`, `/fwrolle`, `/fwkatalog q|i|n|s`, `/fwblock`: Diagnose und Werkzeuge. Neu: `s` liest alle Zauber-IDs (Name, Rang, Symbol) im Hintergrund in den Katalog, als Grundlage für Gegner-Fähigkeiten. / New: `s` scans all spell IDs (name, rank, icon) into the catalog.
 
 ### Installation
 Den Ordner `Freewood-Codex` nach `World of Warcraft\_forever_\Interface\AddOns\` kopieren. Neue Dateien lädt das Spiel erst nach einem kompletten Neustart; ein `/reload` genügt nur, wenn sich bestehende Dateien geändert haben. Fehler sichtbar machen: `/console scriptErrors 1`, danach `/reload`.
@@ -57,7 +57,7 @@ The database of the Freewood family. It learns quests, creatures, objects, items
 - Sharing: new data goes to other players with the addon automatically (can be switched off). Changes by authorised editors take priority.
 - Path network: records where you walked on foot; the level plan uses it for walking times and routes.
 - Connections: ships, zeppelins, subways and portals (recorded by authorised editors).
-- Flights: reads the flight map, measures every flight (duration, price) and shares the routes. There is no bundled flight data; everything comes from your own flights or from other players. Not verified in game. Since 0.46.0 with a flight window: a small window shows the destination and the flight time while you fly. If the duration is known a bar runs down; otherwise the time is measured, counted up and saved for next time. The window is movable and can be switched off in the settings (Database > Flights).
+- Flights: reads the flight map, measures every flight (duration, price) and shares the routes. There is no bundled flight data; everything comes from your own flights or from other players. Not verified in game. Since 0.46.1 with a flight window: a small window shows the destination and the flight time while you fly. If the duration is known a bar runs down; otherwise the time is measured, counted up and saved for next time. The window is movable and can be switched off in the settings (Database > Flights).
 - Item memory: name, quality and icon survive a restart so lists do not show “#1234” again. Not verified in game.
 
 ### Dependencies
