@@ -1259,6 +1259,7 @@ end
 ------------------------------------------------------------------------
 
 local view, index, allDirty, dirtyIds, xpRecs, xpDirty = nil, nil, true, {}, {}, false
+local xpListDirty = false     -- neue Erfahrungs-/Kampfdauer-Saetze: nur deren Listen neu sammeln (kein voller Neuaufbau)
 local ttkRecs = {}
 local nameCount
 
@@ -1425,7 +1426,7 @@ function Share.StoreRecord(name, rec)
     s.rec[key] = rec
     s.seen = time()
     if rec.y == "x" or rec.y == "t" then
-        allDirty = true
+        if view and not allDirty then xpListDirty, xpDirty = true, true else allDirty = true end
     else
         dirtyIds[key] = true
     end
@@ -1896,6 +1897,29 @@ local function BuildTTK()
     view.ttk = tk
 end
 
+-- Nur die Listen der Erfahrungs- und Kampfdauer-Saetze neu sammeln (ohne Zusammenfuehren aller Kreaturen, Objekte, Quests)
+local function CollectXP()
+    xpRecs, ttkRecs = {}, {}
+    local names = {}
+    for name in pairs(Remote()) do names[#names + 1] = name end
+    table.sort(names)
+    for _, name in ipairs(names) do
+        for _, rec in pairs(Remote()[name].rec) do
+            if rec.y == "x" then xpRecs[#xpRecs + 1] = rec elseif rec.y == "t" then ttkRecs[#ttkRecs + 1] = rec end
+        end
+    end
+    local bkeys = {}
+    for key, rec in pairs(builtin.rec) do
+        if rec.y == "x" or rec.y == "t" then bkeys[#bkeys + 1] = key end
+    end
+    table.sort(bkeys)
+    for _, key in ipairs(bkeys) do
+        local rec = builtin.rec[key]
+        if rec.y == "x" then xpRecs[#xpRecs + 1] = rec else ttkRecs[#ttkRecs + 1] = rec end
+    end
+    xpListDirty = false
+end
+
 local function Rebuild()
     local db = Codex.db
     index = { u = {}, o = {}, q = {}, i = {} }
@@ -1960,6 +1984,7 @@ local function Rebuild()
     BuildXP()
     BuildTTK()
     allDirty = false
+    xpListDirty = false
     dirtyIds = {}
 end
 
@@ -2037,6 +2062,7 @@ function Share.View()
     if not view or allDirty then
         Rebuild()
     elseif xpDirty then
+        if xpListDirty then CollectXP() end
         BuildXP()
         BuildTTK()
     end
