@@ -145,7 +145,7 @@ function Flight.Scan()
                     end
                 end
             end
-            state.slot[i] = { id = id, cost = cost and math.floor(cost) or nil, kind = kind }
+            state.slot[i] = { id = id, cost = cost and math.floor(cost) or nil, kind = kind, name = type(name) == "string" and name or nil }
         end
     end
     if changed then
@@ -153,6 +153,46 @@ function Flight.Scan()
         FW:Fire("CODEX_FLIGHT_CHANGED")
     end
     if Flight.OnOpen then pcall(Flight.OnOpen) end
+end
+
+-- Flugzeit-Zeile fuer den Tooltip eines Flugpunkts der geoeffneten Flugkarte (nach Namen); nil, wenn nicht zutreffend
+function Flight.TipLine(name)
+    if type(name) ~= "string" or not state.open or not state.cur or not state.slot then return nil end
+    for _, s in pairs(state.slot) do
+        if s.name == name and s.kind ~= "CURRENT" and s.id and s.id ~= state.cur then
+            local ok, secs = pcall(Flight.EstimateSecs, state.cur, s.id)
+            local L = FW.L
+            if ok and type(secs) == "number" and secs > 0 then
+                return string.format(L.CODEX_TAXI_TIP, Flight.Duration(secs))
+            end
+            return L.CODEX_TAXI_TIP_UNKNOWN
+        end
+    end
+    return nil
+end
+
+local function HookTooltip()
+    local tip = _G.GameTooltip
+    if Flight.tipHooked or not (tip and tip.HookScript) then return end
+    Flight.tipHooked = true
+    tip:HookScript("OnShow", function(self)
+        if not state.open then return end
+        local fs = _G.GameTooltipTextLeft1
+        if not (fs and fs.GetText) then return end
+        local ok, text = pcall(fs.GetText, fs)
+        if not ok or type(text) ~= "string" then return end
+        if FW.Util and FW.Util.IsSecret and FW.Util.IsSecret(text) then return end
+        local line = Flight.TipLine(text)
+        if not line then return end
+        local n = self.NumLines and self:NumLines() or 0
+        for i = 2, n do
+            local l = _G["GameTooltipTextLeft" .. i]
+            local lt = l and l.GetText and l:GetText()
+            if lt == line then return end
+        end
+        self:AddLine(line, 0.6, 0.85, 1)
+        self:Show()
+    end)
 end
 
 -- Flugpunkt mit Namen, wie das Spiel ihn kennt; sonst nil
@@ -400,8 +440,11 @@ function Flight:Start()
     self.started = true
     FW:RegisterEvent("TAXIMAP_OPENED", function()
         if not (Codex.db and Codex.db.settings and Codex.db.settings.enabled) then return end
+        state.open = true
         Codex.Safe(Flight.Scan)
+        HookTooltip()
     end, Flight)
+    FW:RegisterEvent("TAXIMAP_CLOSED", function() state.open = false end, Flight)
     if not self.hooked and _G.hooksecurefunc and _G.TakeTaxiNode then
         if pcall(_G.hooksecurefunc, "TakeTaxiNode", function(slot) pcall(OnTake, slot) end) then self.hooked = true end
     end
@@ -418,6 +461,8 @@ end
 
 function Flight:Stop()
     FW:UnregisterEvent("TAXIMAP_OPENED", Flight)
+    FW:UnregisterEvent("TAXIMAP_CLOSED", Flight)
+    state.open = false
     state.pending = nil
     Flight.flight = nil
     self.started = false
