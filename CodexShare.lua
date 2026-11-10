@@ -2253,3 +2253,15 @@ if FW.Export and FW.Export.RegisterHandler then
         end,
     })
 end
+
+-- Die Gesamtsicht (eigene + empfangene + mitgelieferte Daten) wird beim ersten Zugriff aufgebaut und kostete mitten im Spiel
+-- gut 240 ms (Ruckler beim ersten Tooltip). Jetzt einmal vorab, im Ladebildschirm nach dem Anmelden.
+do
+    local warmed = false
+    FW:RegisterEvent("PLAYER_ENTERING_WORLD", function()
+        if warmed then return end
+        warmed = true
+        local run = function() Share.View() end
+        if FW.Perf and FW.Perf.Call then FW.Perf.Call("Codex Sicht vorwaermen", run) else pcall(run) end
+    end, Share)
+end
