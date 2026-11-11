@@ -1,6 +1,6 @@
 # Freewood-Codex
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.47.2 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.47.3 · Interface 16001 (World of Warcraft: Forever).
 
 ![Codex_Items](https://github.com/Lacustat/Freewood-OctoWoW-Bilder/blob/main/database-item.jpg)
 
@@ -39,6 +39,7 @@ Den Ordner `Freewood-Codex` nach `World of Warcraft\_forever_\Interface\AddOns\`
 
 ### Hinweise
 
+- Datenbank-Liste: Wie viele Datensätze die Liste zeigt, stellst du in den Einstellungen unter „Datenbank“ ein (10 bis 100, Standard 20; vorher fest 300). Gibt es mehr Treffer, steht über der Liste, wie viele sichtbar sind; Suche oder Filter eingrenzen oder die Zahl erhöhen. Ungeprüft im Spiel.
 - Daten werden in `FreewoodDB` gespeichert. Aus der OctoWoW-Version wurden nur Code und Funktionen übernommen, keine Daten.
 
 ### Lizenz
@@ -76,6 +77,7 @@ Copy the folder `Freewood-Codex` to `World of Warcraft\_forever_\Interface\AddOn
 
 ### Notes
 
+- Database list: the number of entries the list shows is set in Settings under "Database" (10 to 100, default 20; before: fixed 300). If more entries match, the line above the list says how many are visible; narrow the search or filters or raise the number. Unchecked in game.
 - Data is stored in `FreewoodDB`. Only code and functions were taken over from the OctoWoW version, no data.
 
 ### License

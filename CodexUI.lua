@@ -15,7 +15,13 @@ local Util = FW.Util
 
 local LIST_W = 540
 local ROW_H, ROW_GAP = 44, 4
-local MAX_ROWS = 300
+-- Wie viele Datensaetze die Liste zeigt: Einstellung (Einstellungen, Datenbank), 10 bis 100, Standard 20
+local LIST_MIN, LIST_MAX, LIST_DEFAULT = 10, 100, 20
+local function ListLimit()
+    local s = Codex.db and Codex.db.settings
+    local v = tonumber(s and s.listLimit) or LIST_DEFAULT
+    return math.max(LIST_MIN, math.min(LIST_MAX, math.floor(v)))
+end
 local LINE_H = 24
 
 local KINDS = {
@@ -3363,7 +3369,7 @@ local function Build(content)
                 if e.header then headers = headers + 1 end
             end
         end
-        local shown = math.min(total, MAX_ROWS)
+        local shown = math.min(total, ListLimit())
         for i = 1, shown do
             local e = entries[i]
             local row = listRows[i]
@@ -3491,6 +3497,8 @@ local function Build(content)
             countLabel:SetText(text)
         end
     end
+
+    FW:On("CODEX_LISTLIMIT_CHANGED", function() if f:IsShown() then RefreshList() end end)
 
     function Refresh()
         LayoutKinds()
@@ -3729,4 +3737,37 @@ SlashCmdList["FREEWOODCODEX"] = function(msg)
     else
         UI:Toggle("codex")
     end
+end
+
+------------------------------------------------------------------------
+-- Einstellungen, Datenbank: Anzahl der angezeigten Datensaetze
+------------------------------------------------------------------------
+if UI.RegisterSettingsSection then
+    UI:RegisterSettingsSection("codex-listlimit", {
+        category = "database",
+        order = 105,
+        height = 120,
+        build = function(parent)
+            local L = FW.L
+            local f, stack = UI.CreateSection(parent, L.CODEX_LISTLIMIT_HEADER)
+            local label = UI.CreateLabel(f, "", { size = 12 })
+            stack:Add(label, { height = 16, gap = 8 })
+            local slider = UI.CreateSlider(f, 240, {
+                min = LIST_MIN, max = LIST_MAX, step = 10,
+                get = function() return ListLimit() end,
+                set = function(v)
+                    if Codex.db and Codex.db.settings then Codex.db.settings.listLimit = v end
+                    FW:Fire("CODEX_LISTLIMIT_CHANGED")
+                end,
+            })
+            slider.onText = function(v) label:SetText(string.format(L.CODEX_LISTLIMIT, v)) end
+            slider:Refresh()
+            stack:Add(slider, { height = 20, gap = 4 })
+            stack:Add(UI.CreateLabel(f, L.CODEX_LISTLIMIT_NOTE, { size = 11, color = "textDim", justifyV = "TOP" }), { fit = true, gap = 8 })
+            stack:Layout()
+            f.slider = slider
+            return f
+        end,
+        refresh = function(frame) if frame and frame.slider then frame.slider:Refresh() end end,
+    })
 end
