@@ -1131,6 +1131,9 @@ end
 -- Vorquests, die Devs ueber die Folgequest-Liste der Elternquest nachtragen
 local nextCache = { view = nil, rev = -1, idx = nil, devPre = nil }
 Codex.chainRev = 0
+-- Lokale Vorquest-Ueberlagerung { [Quest-ID] = { Vorquest-IDs } }: wird von aussen gesetzt (zum Beispiel vom Levelplan),
+-- nie gespeichert und nie geteilt. Nach einer Aenderung Codex.chainRev erhoehen.
+Codex.ExtPre = Codex.ExtPre or {}
 local function ChainCache()
     local V = Codex.V()
     if nextCache.view ~= V or nextCache.rev ~= Codex.chainRev or not nextCache.idx then
@@ -1140,9 +1143,17 @@ local function ChainCache()
             for _, x in ipairs(idx[parent]) do if x == child then return end end
             table.insert(idx[parent], child)
         end
-        for qid, q in pairs(V.quests) do
-            for _, p in ipairs(q.pre or {}) do
+        local ext = Codex.ExtPre or {}
+        for qid, list in pairs(ext) do
+            for _, p in ipairs(list) do
                 if p ~= qid then Link(p, qid) end
+            end
+        end
+        for qid, q in pairs(V.quests) do
+            if not ext[qid] then
+                for _, p in ipairs(q.pre or {}) do
+                    if p ~= qid then Link(p, qid) end
+                end
             end
             for _, n in ipairs(q.ed and q.ed.nx or {}) do
                 if n ~= qid then
@@ -1164,8 +1175,14 @@ function Codex.QuestPre(id)
     local out, have = {}, {}
     local q = Codex.V().quests[id]
     local dev = q and q.ed and q.ed.pre
+    local ext = Codex.ExtPre and Codex.ExtPre[id]
     if dev then
         for _, p in ipairs(dev) do
+            if p ~= id and not have[p] then have[p] = true out[#out + 1] = p end
+        end
+    elseif ext then
+        -- Vorquests aus einer lokalen, freigegebenen Quelle (Codex.ExtPre): ersetzen Daten und Vorlage, werden nicht gespeichert und nicht geteilt
+        for _, p in ipairs(ext) do
             if p ~= id and not have[p] then have[p] = true out[#out + 1] = p end
         end
     else
@@ -1199,7 +1216,7 @@ function Codex.QuestNext(id)
     if Codex.Seed and Codex.Seed.Ready() then
         for _, n in ipairs(Codex.Seed.NextQuests(id)) do
             local qn = V.quests[n]
-            local devPre = qn and qn.ed and qn.ed.pre
+            local devPre = (qn and qn.ed and qn.ed.pre) or (Codex.ExtPre and Codex.ExtPre[n])
             local overridden = false
             if devPre then
                 overridden = true

@@ -1,6 +1,6 @@
 # Freewood-Codex
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.47.4 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.47.5 · Interface 16001 (World of Warcraft: Forever).
 
 ![Codex_Items](https://github.com/Lacustat/Freewood-OctoWoW-Bilder/blob/main/database-item.jpg)
 
@@ -15,6 +15,7 @@
 Die Datenbank der Freewood-Familie. Sie lernt beim Spielen Quests, Kreaturen, Objekte, Items und Gebiete und zeigt sie mit Suche, Filtern und Karte. Eigene Beobachtungen gehen den mitgelieferten Startdaten immer vor.
 
 ### Funktionen
+- Lokale Vorquest-Ueberlagerung `Codex.ExtPre` für andere Freewood-Addons (ersetzt Vorquests einer Quest, wird nie gespeichert und nie geteilt).
 - Lernt automatisch: Quest-Geber und Abgabe, Belohnungen, Ziele, Beute mit Drop-Chancen, Händlerwaren und Preise, Rollen (Händler, Flugmeister, Lehrer, Gastwirt …), Fundorte, Kampfdauer, Erfahrung.
 - Bereiche: Quests, Kreaturen, Objekte, Items, Gebiete, Lernplan. Suche, Filter, Sortierung, Favoriten, Anzeige auf der Weltkarte.
 - Teilen: neue Daten gehen automatisch an andere Spieler mit dem Addon (abschaltbar). Änderungen von Berechtigten haben Vorrang.
@@ -53,6 +54,7 @@ GPL-3.0, siehe `LICENSE`.
 The database of the Freewood family. It learns quests, creatures, objects, items and zones while you play and shows them with search, filters and a map. Your own observations always win over the bundled starter data.
 
 ### Features
+- Local prerequisite overlay `Codex.ExtPre` for other Freewood addons (replaces a quest's prerequisites, is never saved and never shared).
 - Learns automatically: quest givers and turn-ins, rewards, objectives, loot with drop chances, vendor wares and prices, roles (vendor, flight master, trainer, innkeeper …), locations, kill time, experience.
 - Sections: quests, creatures, objects, items, zones, learning plan. Search, filters, sorting, favourites, display on the world map.
 - Sharing: new data goes to other players with the addon automatically (can be switched off). Changes by authorised editors take priority.
