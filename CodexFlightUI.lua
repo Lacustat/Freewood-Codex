@@ -134,7 +134,7 @@ if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("codex-flight", {
         category = "database",
         order = 108,
-        height = 120,
+        height = 150,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CODEX_TAXI_HEADER)
@@ -143,7 +143,10 @@ if UI.RegisterSettingsSection then
             local cb = UI.CreateCheckbox(f, L.CODEX_TAXI_SWITCH, function() return Flight.WindowOn() end,
                 function(on) Settings().flightWindow = on and true or false end)
             stack:Add(cb, { fit = true, gap = 6 })
-            function f.Refresh() cb:Refresh(); stack:Layout() end
+            local cb2 = UI.CreateCheckbox(f, L.CODEX_TAXI_FIXMSG, function() return Flight.FixMsgOn() end,
+                function(on) Settings().flightFixMsg = on and true or false end)
+            stack:Add(cb2, { fit = true, gap = 6 })
+            function f.Refresh() cb:Refresh(); cb2:Refresh(); stack:Layout() end
             stack:Layout()
             return f
         end,

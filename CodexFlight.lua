@@ -26,6 +26,8 @@ NS.Flight = Flight
 local MAX_ROUTES = 600
 local MIN_SECS = 5
 local FLIGHT_WAIT = 20      -- Sekunden bis zum Abflug (Planer)
+local FIX_RATIO = 0.15    -- ab dieser Abweichung (Anteil) ersetzt ein neuer Flug die gespeicherte Zeit
+local DETOUR = 1.3         -- Zwischenstationen einer Schaetzung duerfen den Weg hoechstens so viel verlaengern
 local PRICE_WINDOW = 10      -- Sekunden nach dem Start, in denen der Preis abgebucht wird
 local state = Flight.state   -- slot = { [i] = { id, cost, kind } }, cur = Punkt-ID, pending
 
@@ -205,6 +207,12 @@ end
 -- Flug messen
 ------------------------------------------------------------------------
 
+-- Meldung im Chat, wenn eine gespeicherte Zeit korrigiert wurde (Einstellung flightFixMsg, Standard an)
+function Flight.FixMsgOn()
+    local st = Codex.db and Codex.db.settings
+    return not (st and st.flightFixMsg == false)
+end
+
 -- Zeitanzeige "m:ss"
 function Flight.Duration(sec)
     sec = math.floor(tonumber(sec) or 0)
@@ -245,8 +253,17 @@ local function Finish(p, now)
         r = { n = 0, t = Round(dur), c = paid }
         f.routes[id] = r
     end
-    r.n = (r.n or 0) + 1
-    r.t = Round(((r.t or dur) * (r.n - 1) + dur) / r.n)
+    local oldT = r.t
+    if not isNew and oldT and oldT > 0 and math.abs(dur - oldT) > oldT * FIX_RATIO then
+        -- Weicht der neue Flug deutlich ab, gilt nur noch er (Zaehler neu): so verschwindet eine Fehlmessung sofort
+        r.n, r.t = 1, Round(dur)
+        if Flight.FixMsgOn() then
+            FW:Print(string.format(FW.L.CODEX_FLIGHT_FIXED, a.n or "?", b.n or "?", Flight.Duration(oldT), Flight.Duration(r.t)))
+        end
+    else
+        r.n = (r.n or 0) + 1
+        r.t = Round(((r.t or dur) * (r.n - 1) + dur) / r.n)
+    end
     r.c = paid
     r.a, r.b, r.f = Copy(a), Copy(b), Faction()
     r.upd = math.max(Now(), (r.upd or 0) + 1)
@@ -381,16 +398,30 @@ function Flight.Point(id)
 end
 
 -- Geschaetzte Flugzeit (Sekunden) von Flugpunkt a nach b: gemessene Strecke (auch rueckwaerts) oder die Summe ueber Zwischenstationen
--- aus gemessenen Strecken (das Spiel fliegt sie ohne Halt). nil, wenn nichts bekannt.
+-- aus gemessenen Strecken (das Spiel fliegt sie ohne Halt). Zwischenstationen zaehlen nur, wenn sie ungefaehr auf dem Weg liegen
+-- (Weg ueber den Punkt hoechstens DETOUR mal die Luftlinie auf der Flugkarte); ein Umweg ueber eine ferne Stadt ist keine Schaetzung.
+-- nil, wenn nichts Brauchbares bekannt.
 function Flight.EstimateSecs(a, b)
     if a == b then return 0 end
-    local adj = {}
+    local adj, pos = {}, {}
     for _, r in ipairs(Flight.All()) do
         local ia, ib = Flight.NodeId(r.a.c, r.a.tx, r.a.ty), Flight.NodeId(r.b.c, r.b.tx, r.b.ty)
+        pos[ia] = pos[ia] or { c = r.a.c, x = r.a.tx, y = r.a.ty }
+        pos[ib] = pos[ib] or { c = r.b.c, x = r.b.tx, y = r.b.ty }
         adj[ia] = adj[ia] or {}
         adj[ib] = adj[ib] or {}
         adj[ia][#adj[ia] + 1] = { ib, r.t }
         adj[ib][#adj[ib] + 1] = { ia, r.t }
+    end
+    local pa, pb = pos[a], pos[b]
+    local function Dist(p, q) return math.sqrt((p.x - q.x) ^ 2 + (p.y - q.y) ^ 2) end
+    -- Nur die Zwischenpunkte, die ungefaehr auf dem Weg liegen. Ohne bekannte Lage beider Enden gibt es nur die direkte Strecke.
+    local function OnWay(k)
+        if k == a or k == b then return true end
+        local pk = pos[k]
+        if not (pa and pb and pk) or pa.c ~= pb.c or pk.c ~= pa.c then return false end
+        local direct = Dist(pa, pb)
+        return Dist(pa, pk) + Dist(pk, pb) <= direct * DETOUR + 1
     end
     local dist, done = { [a] = 0 }, {}
     while true do
@@ -402,8 +433,10 @@ function Flight.EstimateSecs(a, b)
         if cur == b then return cd end
         done[cur] = true
         for _, e in ipairs(adj[cur] or {}) do
-            local nd = cd + e[2]
-            if not dist[e[1]] or nd < dist[e[1]] then dist[e[1]] = nd end
+            if OnWay(e[1]) then
+                local nd = cd + e[2]
+                if not dist[e[1]] or nd < dist[e[1]] then dist[e[1]] = nd end
+            end
         end
     end
 end
