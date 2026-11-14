@@ -36,8 +36,9 @@ for _, t in ipairs(targets) do
     local want = Octile(t[1] - 5, t[2] - 5)
     assert(math.abs(d - want) < 0.01, string.format("Feld %d,%d: %.2f statt %.2f", t[1], t[2], d, want))
 end
--- nur die erste Anfrage dieses Startpunkts lief als A*, der Rest ueber den Baum
-assert(P.treeStats.astar == 1 and P.treeStats.tree == #targets - 1, P.treeStats.astar .. "/" .. P.treeStats.tree)
+-- erste Anfrage und ferne Ziele (ueber 1500 Yards Luftlinie, seit 0.47.8) laufen als A*, nahe Ziele ueber den Baum
+assert(P.treeStats.astar + P.treeStats.tree == #targets, P.treeStats.astar .. "/" .. P.treeStats.tree)
+assert(P.treeStats.tree >= 3 and P.treeStats.astar >= 2, P.treeStats.astar .. "/" .. P.treeStats.tree)
 -- zweite Runde: alles aus dem Zwischenspeicher (keine neue Suche)
 local before = P.treeStats.tree + P.treeStats.astar
 for _, t in ipairs(targets) do local tx, ty = Center(t[1], t[2]) assert(P.Distance(1, sx, sy, tx, ty)) end
@@ -73,4 +74,17 @@ for i = 0, 9 do
     local ux, uy = Center(41, 40)
     assert(P3.Distance(1, fx, fy, ux, uy))
 end
+-- 4) 0.47.8: ein fernes Ziel kostet nur einmal; das Ergebnis (auch "nicht gefunden") wird gemerkt
+local P4 = Load(cells)
+local fx, fy = Center(0, 0)
+local nx, ny = Center(3, 3)
+P4.Distance(1, fx, fy, nx, ny)              -- erste Anfrage
+P4.Distance(1, fx, fy, Center(4, 4))        -- zweite: Baum entsteht
+local s0 = P4.treeStats.astar + P4.treeStats.tree
+local far = P4.Distance(1, fx, fy, Center(49, 49))
+assert(far and math.abs(far - Octile(49, 49)) < 0.01, "fernes Ziel exakt")
+local s1 = P4.treeStats.astar + P4.treeStats.tree
+assert(s1 == s0 + 1, "eine Suche fuer das ferne Ziel")
+assert(P4.Distance(1, fx, fy, Center(49, 49)) == far)
+assert(P4.treeStats.astar + P4.treeStats.tree == s1, "fernes Ziel aus dem Zwischenspeicher")
 print("pathtree_test OK")

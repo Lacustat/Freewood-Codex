@@ -883,6 +883,12 @@ end
 -- (wie bisher bei A*), es gibt also keinen groesseren Einzelruckler. Ergebnis: die kuerzeste Strecke (exakt); die alte
 -- A*-Suche rechnete mit einer leicht ueberhoehten Schaetzung und konnte etwas laengere Wege liefern.
 local MAX_TREES = 4          -- so viele Startpunkte je Welt behalten (die zuletzt benutzten)
+-- Seit 0.47.8: Der Baum gilt nur fuer nahe Ziele. Ein Dijkstra ohne Zielrichtung muss fuer ein fernes Ziel fast die ganze
+-- Welt absuchen; scheiterte er an der Grenze, wurde nichts gemerkt und die naechste Anfrage suchte wieder (Log 14.11.,
+-- Level-31-Jaeger: Rechenstuecke von 1-5,6 s, v. a. bei Haendlersuche und Vorschlaegen). Ferne Ziele gehen wieder ueber A*
+-- (gerichtet, Ergebnis inkl. "nicht gefunden" gemerkt), und wenn der Baum an seine Grenze kommt, rechnet A* das Paar fertig.
+local TREE_RADIUS = 1500     -- Yards Luftlinie: weiter weg -> A*
+local TREE_BUDGET = 4000     -- neue Knoten je Anfrage im Baum, danach A* fuer dieses Paar
 
 local function TreeNew(from)
     -- Heap als zwei parallele Listen (Schluessel, Prioritaet): keine Tabelle je Eintrag
@@ -994,12 +1000,20 @@ function Path.Distance(world, ax, ay, bx, by)
         g.srcMiss = g.srcMiss or {}
         local n = (g.srcMiss[sa] or 0) + 1
         g.srcMiss[sa] = n
-        if n >= 2 or (g.trees and g.trees[sa]) then
-            local t = TreeFor(g, sa)
-            local d = TreeDist(g, t, sb, MAX_EXPAND)
+        local t = g.trees and g.trees[sa]
+        if t and t.done[sb] then
+            cost = t.dist[sb]                  -- schon erreicht: gratis
             Path.treeStats.tree = Path.treeStats.tree + 1
-            if d == nil then return nil end    -- Grenze dieser Anfrage: nicht merken, spaeter rechnet der Baum weiter
-            cost = d
+        elseif straight <= TREE_RADIUS and (n >= 2 or t) then
+            t = t or TreeFor(g, sa)
+            local d = TreeDist(g, t, sb, TREE_BUDGET)
+            Path.treeStats.tree = Path.treeStats.tree + 1
+            if d == nil then
+                cost = Search(g, sa, sb) or false   -- Grenze des Baums: dieses Paar mit A* fertig rechnen (und merken)
+                Path.treeStats.astar = Path.treeStats.astar + 1
+            else
+                cost = d
+            end
         else
             cost = Search(g, sa, sb) or false
             Path.treeStats.astar = Path.treeStats.astar + 1
