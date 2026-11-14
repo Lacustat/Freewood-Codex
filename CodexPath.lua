@@ -388,6 +388,42 @@ function Path.Links()
     return out
 end
 
+-- Gebietsuebergaenge zu Fuss als Punkte (seit 0.47.9), fuer die schnelle Laufzeit des Levelplans: im Gebiet Luftlinie,
+-- beim Gebietswechsel ueber diese Punkte. Rueckgabe: { list = { node... }, byFrom = { [karte] = { node... } },
+-- byTo = { [karte] = { node... } }, rev = n }; node = { a, b, w, fx, fy, tx, ty } (Welt und Zellraum in Yards).
+-- Nur Art "w" (zu Fuss) zwischen echten Karten (positive IDs); je Punkt ein Knoten. Wird hoechstens alle 60 s neu aufgebaut.
+local crossCache, crossAt, crossRev = nil, -1000, 0
+function Path.Crossings()
+    local now = _G.time and _G.time() or 0
+    if crossCache and now - crossAt < 60 then return crossCache end
+    local list, byFrom, byTo = {}, {}, {}
+    for a, row in pairs(Path.Links()) do
+        if type(a) == "number" and a > 0 then
+            for b, kinds in pairs(row) do
+                local e = type(b) == "number" and b > 0 and kinds.w
+                for _, p in ipairs(e and e.p or {}) do
+                    if p.fk and p.tk and p.fw and p.fw == p.tw then
+                        local fcx, fcy = Path.KeyToCell(p.fk)
+                        local tcx, tcy = Path.KeyToCell(p.tk)
+                        local nd = { a = a, b = b, w = p.fw,
+                            fx = (fcx + 0.5) * CELL, fy = (fcy + 0.5) * CELL, tx = (tcx + 0.5) * CELL, ty = (tcy + 0.5) * CELL }
+                        list[#list + 1] = nd
+                        nd.i = #list
+                        byFrom[a] = byFrom[a] or {}
+                        byFrom[a][#byFrom[a] + 1] = nd
+                        byTo[b] = byTo[b] or {}
+                        byTo[b][#byTo[b] + 1] = nd
+                    end
+                end
+            end
+        end
+    end
+    crossRev = crossRev + 1
+    crossCache = { list = list, byFrom = byFrom, byTo = byTo, rev = crossRev }
+    crossAt = now
+    return crossCache
+end
+
 ------------------------------------------------------------------------
 -- Teilen: eigene Bloecke, Pruefen und Einmischen
 ------------------------------------------------------------------------
