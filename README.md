@@ -1,6 +1,6 @@
 # Freewood-Codex
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.47.9 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.48.0 · Interface 16001 (World of Warcraft: Forever).
 
 ![Codex_Items](https://github.com/Lacustat/Freewood-OctoWoW-Bilder/blob/main/database-item.jpg)
 
@@ -30,6 +30,7 @@ Die Datenbank der Freewood-Familie. Sie lernt beim Spielen Quests, Kreaturen, Ob
 
 ### Befehle
 - `/fwcodex`: Reiter öffnen, Diagnose
+- Ab 0.48.0: `Codex.ShowEntry(art, id)` öffnet den Codex an einem Eintrag (Kreatur, Objekt, Quest, Item) und `Codex.SearchEntries(text)` sucht Einträge nach Namen (eigene Daten und Vorlage) — für die Verknüpfungen im Notizblock des Core (0.50.0).
 - `/fwcodex share`: Teilen prüfen (Wege, Zähler, bekannte Spieler); `/fwcodex share log`: gesendete und empfangene Nachrichten im Chat; `/fwcodex share channel on|off`: Test des geheimen Kanals mit Protokoll
 - `/fwflight`: Stand der Flugerfassung und ob die Flug-Funktionen des Spiels da sind
 - `/fwwege`: Wegenetz auf der Karte
@@ -69,6 +70,7 @@ The database of the Freewood family. It learns quests, creatures, objects, items
 
 ### Commands
 - `/fwcodex`: Reiter öffnen, Diagnose
+- Since 0.48.0: `Codex.ShowEntry(kind, id)` opens the codex at an entry (creature, object, quest, item) and `Codex.SearchEntries(text)` searches entries by name (own data and template) — for the links in the Core notepad (0.50.0).
 - `/fwcodex share`: Teilen prüfen (Wege, Zähler, bekannte Spieler); `/fwcodex share log`: gesendete und empfangene Nachrichten im Chat; `/fwcodex share channel on|off`: Test des geheimen Kanals mit Protokoll
 - `/fwflight`: Stand der Flugerfassung und ob die Flug-Funktionen des Spiels da sind
 - `/fwwege`: Wegenetz auf der Karte

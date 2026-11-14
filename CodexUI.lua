@@ -3633,6 +3633,57 @@ UI:RegisterTab("codex", {
 })
 
 ------------------------------------------------------------------------
+-- Von aussen: Eintrag im Codex zeigen (z. B. Klick auf eine Verknuepfung im Notizblock des Core, seit 0.48.0)
+-- kind = units, objects, quests, items. Rueckgabe true, wenn das Fenster geoeffnet wurde.
+------------------------------------------------------------------------
+local SHOW_KINDS = { units = true, objects = true, quests = true, items = true }
+function Codex.ShowEntry(kind, id)
+    id = tonumber(id)
+    if not (SHOW_KINDS[kind] and id and UI and UI.Show) then return false end
+    UI:Show("codex")
+    local function Go()
+        if built and built.Go then built.Go(kind, id) return true end
+        return false
+    end
+    if not Go() and _G.C_Timer and _G.C_Timer.After then _G.C_Timer.After(0, Go) end
+    return true
+end
+
+-- Suche nach Namen in eigenen Daten und in der Vorlage: Liste { kind, id, name }, hoechstens limit Treffer je Art.
+-- Fuer den Verknuepfen-Dialog des Notizblocks.
+function Codex.SearchEntries(text, limit, kinds)
+    text = type(text) == "string" and text:lower():gsub("^%s+", ""):gsub("%s+$", "") or ""
+    if #text < 2 then return {} end
+    limit = limit or 8
+    kinds = kinds or { "units", "quests", "items", "objects" }
+    local out = {}
+    local V = Codex.V()
+    local sd = Codex.Seed and Codex.Seed.Ready() and Codex.Seed or nil
+    for _, kind in ipairs(kinds) do
+        local seen, n = {}, 0
+        local function Try(id, name)
+            if n >= limit or seen[id] or type(name) ~= "string" then return end
+            if name:lower():find(text, 1, true) then
+                seen[id] = true
+                n = n + 1
+                out[#out + 1] = { kind = kind, id = id, name = name }
+            end
+        end
+        if kind == "quests" then
+            for id, q in pairs(V.quests or {}) do if type(id) == "number" then Try(id, Codex.QuestTitle(q, id)) end end
+            if sd then for _, id in ipairs(sd.IDs("quests")) do if n >= limit then break end Try(id, sd.QuestTitle(id)) end end
+        elseif kind == "items" then
+            for id in pairs(Codex.db.names or {}) do if type(id) == "number" then Try(id, Codex:ItemName(id)) end end
+            if sd then for _, id in ipairs(sd.IDs("items")) do if n >= limit then break end Try(id, sd.Name("items", id)) end end
+        else
+            for id, e in pairs(V[kind] or {}) do if type(id) == "number" then Try(id, Codex.NameOf(e)) end end
+            if sd then for _, id in ipairs(sd.IDs(kind)) do if n >= limit then break end Try(id, sd.Name(kind, id)) end end
+        end
+    end
+    return out
+end
+
+------------------------------------------------------------------------
 -- /fwcodex near <rolle>: naechste Haendler, Flugmeister ... auf dieser Karte (Vorlage)
 ------------------------------------------------------------------------
 
