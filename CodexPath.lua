@@ -876,6 +876,106 @@ function Path.FromWorldVec(vx, vy)
     return vy, vx
 end
 
+-- Wegsuche je Startpunkt (seit 0.47.7): Der Levelplaner fragt sehr oft vom selben Ort aus nach vielen Zielen
+-- (deine Position gegen alle Questgeber). Statt fuer jedes Ziel eine eigene A*-Suche zu starten, laeuft ab der zweiten
+-- Anfrage vom selben Startknoten ein Dijkstra, der seinen Zustand behaelt: Jede Anfrage rechnet nur so weit weiter, bis
+-- ihr Ziel feststeht; Ziele, die schon erreicht wurden, kosten nichts mehr. Je Anfrage hoechstens MAX_EXPAND neue Knoten
+-- (wie bisher bei A*), es gibt also keinen groesseren Einzelruckler. Ergebnis: die kuerzeste Strecke (exakt); die alte
+-- A*-Suche rechnete mit einer leicht ueberhoehten Schaetzung und konnte etwas laengere Wege liefern.
+local MAX_TREES = 4          -- so viele Startpunkte je Welt behalten (die zuletzt benutzten)
+
+local function TreeNew(from)
+    -- Heap als zwei parallele Listen (Schluessel, Prioritaet): keine Tabelle je Eintrag
+    return { dist = { [from] = 0 }, done = {}, hk = { from }, hp = { 0 }, size = 1, used = 0 }
+end
+
+local floor = math.floor
+
+local function TreePush(t, k, pr)
+    local hk, hp = t.hk, t.hp
+    local i = t.size + 1
+    t.size = i
+    while i > 1 do
+        local p = floor(i / 2)
+        local pp = hp[p]
+        if pp <= pr then break end
+        hk[i], hp[i] = hk[p], pp
+        i = p
+    end
+    hk[i], hp[i] = k, pr
+end
+
+local function TreePop(t)
+    local hk, hp, size = t.hk, t.hp, t.size
+    local topK, topP = hk[1], hp[1]
+    local lastK, lastP = hk[size], hp[size]
+    hk[size], hp[size] = nil, nil
+    size = size - 1
+    t.size = size
+    if size > 0 then
+        local i = 1
+        while true do
+            local l = i * 2
+            if l > size then break end
+            local r = l + 1
+            local m = l
+            if r <= size and hp[r] < hp[l] then m = r end
+            if hp[m] >= lastP then break end
+            hk[i], hp[i] = hk[m], hp[m]
+            i = m
+        end
+        hk[i], hp[i] = lastK, lastP
+    end
+    return topK, topP
+end
+
+-- Strecke vom Startknoten des Baums zu "to": Zahl, false (nicht erreichbar) oder nil (Grenze dieser Anfrage erreicht;
+-- der Zustand bleibt, eine spaetere Anfrage rechnet weiter)
+local function TreeDist(g, t, to, budget)
+    if t.done[to] then return t.dist[to] end
+    local nodes, dist, done = g.nodes, t.dist, t.done
+    local expanded = 0
+    while t.size > 0 do
+        local k, d = TreePop(t)
+        if not done[k] and d <= (dist[k] or d) then
+            done[k] = true
+            expanded = expanded + 1
+            local nd = nodes[k]
+            if nd then
+                for nk, cost in pairs(nd.adj) do
+                    local v = d + cost
+                    if not done[nk] and (not dist[nk] or v < dist[nk]) then
+                        dist[nk] = v
+                        TreePush(t, nk, v)
+                    end
+                end
+            end
+            if k == to then return d end
+            if expanded >= budget then return nil end
+        end
+    end
+    return false
+end
+
+local function TreeFor(g, from)
+    g.trees = g.trees or {}
+    g.treeTick = (g.treeTick or 0) + 1
+    local t = g.trees[from]
+    if not t then
+        local n, oldest, oldK = 0, nil, nil
+        for k, v in pairs(g.trees) do
+            n = n + 1
+            if not oldest or v.used < oldest then oldest, oldK = v.used, k end
+        end
+        if n >= MAX_TREES and oldK then g.trees[oldK] = nil end
+        t = TreeNew(from)
+        g.trees[from] = t
+    end
+    t.used = g.treeTick
+    return t
+end
+Path.treeStats = { tree = 0, astar = 0 }
+
 -- Strecke in Yards laengs des Wegenetzes zwischen zwei Orten (Zellraum, Yards); nil = unbekannt, Luftlinie benutzen
 function Path.Distance(world, ax, ay, bx, by)
     if type(world) ~= "number" then return nil end
@@ -890,7 +990,20 @@ function Path.Distance(world, ax, ay, bx, by)
     local ck = sa .. ":" .. sb
     local cost = g.cache[ck]
     if cost == nil then
-        cost = Search(g, sa, sb) or false
+        -- erste Anfrage von diesem Startknoten: A* wie bisher; ab der zweiten: Baum je Startpunkt (siehe oben)
+        g.srcMiss = g.srcMiss or {}
+        local n = (g.srcMiss[sa] or 0) + 1
+        g.srcMiss[sa] = n
+        if n >= 2 or (g.trees and g.trees[sa]) then
+            local t = TreeFor(g, sa)
+            local d = TreeDist(g, t, sb, MAX_EXPAND)
+            Path.treeStats.tree = Path.treeStats.tree + 1
+            if d == nil then return nil end    -- Grenze dieser Anfrage: nicht merken, spaeter rechnet der Baum weiter
+            cost = d
+        else
+            cost = Search(g, sa, sb) or false
+            Path.treeStats.astar = Path.treeStats.astar + 1
+        end
         g.cache[ck] = cost
     end
     if not cost then return nil end
