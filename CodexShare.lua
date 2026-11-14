@@ -32,6 +32,7 @@ local MAX_NAMES = 6000
 local SELF_IMPORT = "~import"
 
 local KIND_OF = { u = "units", o = "objects", q = "quests", i = "ied" }
+local NAME_OF = { u = "unit", o = "object", q = "quest", i = "item" }   -- Buchstabe -> kind fuer Share.StampOne
 local LETTER_OF = { unit = "u", object = "o", quest = "q", item = "i" }
 local CLASSES = { elite = true, rare = true, rareelite = true, worldboss = true }
 local XP_CLASSES = { normal = true, elite = true, rare = true, rareelite = true, worldboss = true }
@@ -1000,7 +1001,13 @@ local function TTKSignature()
     return any and s % 2147483647 or nil
 end
 
+-- Der Scan-Zwischenspeicher wird fuer Anfragen anderer Spieler (Verzeichnis, Zusammenfassung) wiederverwendet,
+-- solange er juenger ist als SCAN_REUSE. Frueher wurde er bei jeder Datenaenderung verworfen, dadurch rechnete
+-- jede Sync-Antwort (Art Q/R) die ganze Datenbank neu durch (~80 ms Ruckler je Nachricht, Log vom 14.11.2026).
+-- Der Stand einzelner Datensaetze bleibt exakt: er steht in den Stempeln (StampOne/Touch), nicht im Zwischenspeicher.
+-- Der Sync erzwingt ohnehin alle 5 Minuten einen vollen Scan (ScanOwn), der auch die Ankuendigungen speist.
 local scanCache, scanAt = nil, 0
+local SCAN_REUSE = 360
 local firstScanDone = false
 
 local function Touch(stamps, key, sig, now)
@@ -1019,7 +1026,7 @@ end
 -- Alle eigenen Datensaetze durchgehen. Rueckgabe: Liste { key, upd }, Anzahl, Pruefwert, geaenderte Schluessel
 function Share.Scan(force)
     local now = time()
-    if scanCache and not force and now - scanAt < 30 then
+    if scanCache and not force and now - scanAt < SCAN_REUSE then
         return scanCache.list, scanCache.count, scanCache.hash, {}
     end
     local store = Store()
@@ -1093,7 +1100,9 @@ function Share.Summary()
 end
 
 function Share.InvalidateScan()
-    scanCache = nil
+    -- Seit 0.47.6 bleibt der Zwischenspeicher stehen (siehe SCAN_REUSE): Aenderungen an Fahrten, Flugrouten
+    -- und Ortspunkten erscheinen im Verzeichnis mit dem naechsten erzwungenen Scan; beim Ausliefern (OwnRecord)
+    -- kommt ihr Stand ohnehin direkt aus dem Datensatz.
 end
 
 -- Stand eines einzelnen eigenen Datensatzes neu berechnen. Rueckgabe: key, upd, geaendert
@@ -1109,7 +1118,7 @@ function Share.StampOne(kind, id)
     local key = letter .. id
     local stamps = Store().stamps
     local changed = Touch(stamps, key, Signature(letter, e), time())
-    scanCache = nil
+    -- Zwischenspeicher bewusst stehen lassen (SCAN_REUSE): der neue Stand steht im Stempel
     return key, stamps[key].upd, changed
 end
 
@@ -1167,9 +1176,9 @@ function Share.OwnRecord(key)
     if letter == "p" or letter == "z" then
         local P = Codex.Path
         if not P then return nil end
-        local list = Share.Scan(false)
+        -- nicht Share.Scan: die kleine Wegenetz-Liste reicht und kostet nichts
         local upd
-        for _, e in ipairs(list) do
+        for _, e in ipairs(P.SyncList and P.SyncList() or {}) do
             if e.key == key then upd = e.upd break end
         end
         if not upd then return nil end
@@ -1179,12 +1188,13 @@ function Share.OwnRecord(key)
         return rec, upd
     end
     local upd = Share.OwnUpd(key)
-    if not upd then
-        Share.Scan(true)
-        upd = Share.OwnUpd(key)
+    if not upd and NAME_OF[letter] then
+        -- nie die ganze Datenbank im Nachrichten-Handler durchrechnen: nur diesen einen Datensatz stempeln
+        local _, u2 = Share.StampOne(NAME_OF[letter], id)
+        upd = u2 or Share.OwnUpd(key)
     end
     if not upd then
-        return nil
+        return nil   -- x0/t0 ohne Stempel: kommt mit dem naechsten regelmaessigen Scan
     end
     local raw
     if letter == "x" then
