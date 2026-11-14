@@ -388,19 +388,7 @@ function Codex.RememberQuality(itemID, quality)
         iq = {}
         Codex.db.iq = iq
     end
-    if iq[itemID] == quality then
-        return
-    end
-    if iq[itemID] == nil then
-        local n = 0
-        for _ in pairs(iq) do
-            n = n + 1
-            if n >= 8000 then
-                return
-            end
-        end
-    end
-    iq[itemID] = quality
+    iq[itemID] = quality   -- ohne Obergrenze (seit 0.48.1): eine Zahl je Item
 end
 
 function Codex.QualityOf(itemID)

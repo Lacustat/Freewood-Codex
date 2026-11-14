@@ -378,6 +378,17 @@ local function FilterActive(flt)
     return n
 end
 
+-- Item ohne Laden: Typ, Untertyp, Platz (GetItemInfoInstant braucht keine Serveranfrage). Rueckgabe nil, wenn nicht da.
+local function InstantInfo(id)
+    local fn = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant
+    if type(fn) ~= "function" then return nil end
+    local ok, _, itype, isub, equip = pcall(fn, id)
+    if ok and type(itype) == "string" and itype ~= "" then return itype, isub, equip end
+    return nil
+end
+
+-- Rueckgabe: true = passt; false = passt nicht; false, true = nicht entscheidbar, weil Itemdaten fehlen
+-- (nur bei ungeladenen Items, info.light). Solche Items fragt die Liste gezielt beim Spiel an.
 local function PassFilter(flt, facts, info, id)
     if flt.src == "vendor" and not (facts.v or (id and SeedOK() and Codex.Seed.ItemHasVendor(id))) then return false end
     if flt.src == "unit" and not facts.u then return false end
@@ -391,18 +402,30 @@ local function PassFilter(flt, facts, info, id)
     if not needInfo then
         return true
     end
-    if not info then return false end
-    if next(flt.q) and not flt.q[info.light and (info.quality or -1) or (info.quality or 1)] then return false end
-    if flt.type and info.type ~= flt.type then return false end
-    if flt.sub and info.subType ~= flt.sub then return false end
-    if flt.slot and info.equipLoc ~= flt.slot then return false end
-    local il, rl, price = info.itemLevel or 0, info.minLevel or 0, (info.sellPrice or 0) / 10000
-    if flt.ilMin and il < flt.ilMin then return false end
-    if flt.ilMax and il > flt.ilMax then return false end
-    if flt.rlMin and rl < flt.rlMin then return false end
-    if flt.rlMax and rl > flt.rlMax then return false end
-    if flt.pMin and price < flt.pMin then return false end
-    if flt.pMax and price > flt.pMax then return false end
+    if not info then return false, true end
+    local light = info.light == true
+    local missing = false
+    -- Feld pruefen: unbekannt bei ungeladenem Item = fehlt, sonst echter Vergleich
+    local function Known(v) if v == nil and light then missing = true return false end return true end
+    if next(flt.q) and Known(info.quality) and not flt.q[info.quality or 1] then return false end
+    if flt.type and Known(info.type) and info.type ~= flt.type then return false end
+    if flt.sub and Known(info.subType) and info.subType ~= flt.sub then return false end
+    if flt.slot and Known(info.equipLoc) and info.equipLoc ~= flt.slot then return false end
+    if (flt.ilMin or flt.ilMax) and Known(info.itemLevel) then
+        local il = info.itemLevel or 0
+        if flt.ilMin and il < flt.ilMin then return false end
+        if flt.ilMax and il > flt.ilMax then return false end
+    end
+    if (flt.rlMin or flt.rlMax) and Known(info.minLevel) then
+        local rl = info.minLevel or 0
+        if flt.rlMin and rl < flt.rlMin then return false end
+        if flt.rlMax and rl > flt.rlMax then return false end
+    end
+    if (flt.pMin or flt.pMax) and Known(info.sellPrice) then
+        local price = (info.sellPrice or 0) / 10000
+        if flt.pMin and price < flt.pMin then return false end
+        if flt.pMax and price > flt.pMax then return false end
+    end
     if flt.aMin or flt.aMax then
         local ah = info.id and Codex.AuctionProvider and Codex.AuctionPrice(info.id)
         ah = (ah or 0) / 10000
@@ -410,16 +433,21 @@ local function PassFilter(flt, facts, info, id)
         if flt.aMin and ah < flt.aMin then return false end
         if flt.aMax and ah > flt.aMax then return false end
     end
-    if hasStats then
+    if hasStats or flt.statMin or flt.statMax then
         local st = info.id and Codex.db.istats and Codex.db.istats[info.id]
-        if not StatsPass(st, flt) then return false end
-    elseif flt.statMin or flt.statMax then
-        if not (info.id and Codex.db.istats and Codex.db.istats[info.id]) then return false end
+        if not st and not light and info.id and Codex.GetStats then
+            st = Codex:GetStats(info.id)   -- geladenes Item: Werte jetzt einmal lesen und merken
+        end
+        if not st then
+            if light then missing = true else return false end
+        elseif hasStats and not StatsPass(st, flt) then
+            return false
+        end
     end
+    if missing then return false, true end
     return true
 end
 
-------------------------------------------------------------------------
 -- Eintraege fuer die Liste
 ------------------------------------------------------------------------
 
@@ -889,6 +917,8 @@ local function BuildEntries(kind, text, flt, opts)
         end
     else
         local index = ItemIndex()
+        local missingIds = {}
+        list.missingIds = missingIds
         local function ItemEntry(id, facts, name, seed)
             local info = Util.GetItem(id)
             -- Das Spiel kennt viele Items noch nicht (nicht im Zwischenspeicher). Dann reichen gemerkte Werte:
@@ -900,15 +930,19 @@ local function BuildEntries(kind, text, flt, opts)
                 local Cat = Codex.Catalog
                 if Cat and Cat.GetItem then nm, cq, il, ml, sp = Cat.GetItem(id) end
                 local q = (Codex.db.iq and Codex.db.iq[id]) or cq
-                if q or il then
-                    light = { id = id, name = nm, quality = q, itemLevel = il, minLevel = ml, sellPrice = sp, light = true }
-                end
+                -- Typ, Untertyp und Platz ohne Laden (auch fuer Items aus dem Auktionshaus, die nie angefragt werden)
+                local itype, isub, equip = InstantInfo(id)
+                light = { id = id, name = nm, quality = q, itemLevel = il, minLevel = ml, sellPrice = sp,
+                          type = itype, subType = isub, equipLoc = equip, light = true }
             end
-            if not PassFilter(flt, facts, info or light, id) then
+            local pass, unknown = PassFilter(flt, facts, info or light, id)
+            if not pass then
+                if unknown then missingIds[#missingIds + 1] = id end
                 return
             end
             if not info then info = light end
             local sub = {}
+            if info and info.light and info.quality == nil and info.itemLevel == nil and info.type == nil then info = nil end
             if info then
                 if (info.itemLevel or 0) > 1 then sub[#sub + 1] = string.format(L.CODEX_ILVL_SHORT, info.itemLevel) end
                 if info.type then
@@ -946,6 +980,8 @@ local function BuildEntries(kind, text, flt, opts)
             end
         end
     end
+    local missingIds = list.missingIds
+    list.missingIds = nil
     if opts.fav and Codex.FavSupported(kind) then
         local kept = {}
         for _, e in ipairs(list) do
@@ -960,7 +996,7 @@ local function BuildEntries(kind, text, flt, opts)
         end
         list = kept
     end
-    return list
+    return list, missingIds
 end
 
 ------------------------------------------------------------------------
@@ -3171,7 +3207,7 @@ local function Build(content)
         if memo.key == key and mode ~= "dist" and not statusSel then
             return memo.list
         end
-        local entries = BuildEntries(kind, search, flt, { seed = seed, role = role, chain = chainSel, status = statusSel, zoneSel = zoneSel,
+        local entries, missing = BuildEntries(kind, search, flt, { seed = seed, role = role, chain = chainSel, status = statusSel, zoneSel = zoneSel,
             class = kind == "learn" and EnsureLearnSel() or nil, fav = favOnly[kind] })
         local metric = SORT_METRIC[mode]
         if mode == "dist" then
@@ -3248,7 +3284,7 @@ local function Build(content)
             end
             return a.id < b.id
         end)
-        memo.key, memo.list = key, entries
+        memo.key, memo.list, memo.missing = key, entries, missing
         return entries
     end
 
@@ -3362,6 +3398,14 @@ local function Build(content)
             if kind == "items" then Codex:CaptureStats(ids) end
         end
         local entries = SortedEntries()
+        -- Treffer, die der Filter mangels Itemdaten nicht entscheiden konnte: gezielt anfragen (hoechstens 300 je Durchlauf);
+        -- sind die Daten da, baut CODEX_ITEMS_LOADED die Liste neu.
+        if kind == "items" and memo.missing and #memo.missing > 0 then
+            local ask = {}
+            for i = 1, math.min(#memo.missing, 300) do ask[i] = memo.missing[i] end
+            Codex:LoadItemInfo(ask)
+            if Codex.CaptureStats then Codex:CaptureStats(ask) end
+        end
         local total = #entries
         local headers = 0
         if kind == "quests" and CurrentSort() == "zone" then
