@@ -20,4 +20,10 @@ NS.Owners = {
     "Lujinja Steel",
     "Pinky Freewood",
     "Dr Freewood",
+    "Aroki Silberrücken",
+}
+
+-- Feste Moderatoren: immer Moderator, auch ohne die Liste eines Eigentuemers (ausser ausdruecklich gesperrt)
+NS.Moderators = {
+    "Jinxer Darktide",
 }

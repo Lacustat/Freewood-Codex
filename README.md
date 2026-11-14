@@ -1,6 +1,6 @@
 # Freewood-Codex
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.48.1 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.49.0 · Interface 16001 (World of Warcraft: Forever).
 
 ![Codex_Items](https://github.com/Lacustat/Freewood-OctoWoW-Bilder/blob/main/database-item.jpg)
 
@@ -31,6 +31,7 @@ Die Datenbank der Freewood-Familie. Sie lernt beim Spielen Quests, Kreaturen, Ob
 ### Befehle
 - `/fwcodex`: Reiter öffnen, Diagnose
 - Ab 0.48.0: `Codex.ShowEntry(art, id)` öffnet den Codex an einem Eintrag (Kreatur, Objekt, Quest, Item) und `Codex.SearchEntries(text)` sucht Einträge nach Namen (eigene Daten und Vorlage) — für die Verknüpfungen im Notizblock des Core (0.50.0).
+- Ab 0.49.0: Rechte. „Aroki Silberrücken“ steht fest in der Eigentümer-Liste (`CodexOwners.lua`). Neu ist eine feste Moderatoren-Liste (`NS.Moderators`): „Jinxer Darktide“ ist immer Moderator, auch ohne die Liste eines Eigentümers; eine ausdrückliche Sperre gilt trotzdem. Test `tests/trust_fixed_test.lua`. Im Spiel ungeprüft.
 - Ab 0.48.1: Item-Filter für nicht geladene Items. Typ, Untertyp und Ausrüstungsplatz kommen jetzt auch ohne Laden (`GetItemInfoInstant`), so finden „Waffe“ + „Bogen“ (+ „episch“) auch Items, die du nur aus dem Auktionshaus kennst (Beispiel: Bogen der Sengpfeile fehlte vorher). Treffer, die der Filter mangels Daten nicht entscheiden kann (Stufe, Werte, fehlende Qualität), werden gezielt beim Spiel angefragt statt stillschweigend verworfen; die Liste baut sich neu, sobald die Daten da sind („lade Itemdaten: n“). Die Merkliste für Item-Qualitäten hat keine Obergrenze mehr (vorher 8000, davon 6700 schon durch die Forever-Daten belegt). Mit dem Datenstand vom 14.11. nachgestellt; im Spiel ungeprüft.
 - `/fwcodex share`: Teilen prüfen (Wege, Zähler, bekannte Spieler); `/fwcodex share log`: gesendete und empfangene Nachrichten im Chat; `/fwcodex share channel on|off`: Test des geheimen Kanals mit Protokoll
 - `/fwflight`: Stand der Flugerfassung und ob die Flug-Funktionen des Spiels da sind
@@ -72,6 +73,7 @@ The database of the Freewood family. It learns quests, creatures, objects, items
 ### Commands
 - `/fwcodex`: Reiter öffnen, Diagnose
 - Since 0.48.0: `Codex.ShowEntry(kind, id)` opens the codex at an entry (creature, object, quest, item) and `Codex.SearchEntries(text)` searches entries by name (own data and template) — for the links in the Core notepad (0.50.0).
+- Since 0.49.0: permissions. "Aroki Silberrücken" is now in the fixed owner list (`CodexOwners.lua`). New fixed moderator list (`NS.Moderators`): "Jinxer Darktide" is always moderator, even without an owner's list; an explicit block still applies. Test `tests/trust_fixed_test.lua`. Not verified in game.
 - Since 0.48.1: item filters for items that are not loaded. Type, subtype and equip slot now also come without loading (`GetItemInfoInstant`), so "Weapon" + "Bow" (+ "epic") also finds items you only know from the auction house (example: Bow of Searing Arrows was missing before). Hits the filter cannot decide for lack of data (level, stats, missing quality) are requested from the game instead of being dropped silently; the list rebuilds once the data arrives ("loading item data: n"). The item quality memory has no limit any more (was 8000, 6700 of them already used by the Forever data). Reproduced with the data of 14 Nov; not verified in game.
 - `/fwcodex share`: Teilen prüfen (Wege, Zähler, bekannte Spieler); `/fwcodex share log`: gesendete und empfangene Nachrichten im Chat; `/fwcodex share channel on|off`: Test des geheimen Kanals mit Protokoll
 - `/fwflight`: Stand der Flugerfassung und ob die Flug-Funktionen des Spiels da sind

@@ -132,6 +132,20 @@ end
 -- Abfragen
 ------------------------------------------------------------------------
 
+local function FixedModKeys()
+    local set = {}
+    for _, n in ipairs(NS.Moderators or {}) do
+        local k = Trust.EntryKey(n)
+        if k then set[k] = true end
+    end
+    return set
+end
+
+function Trust.IsFixedModerator(name)
+    local k = Trust.Key(name)
+    return k ~= nil and FixedModKeys()[k] == true
+end
+
 function Trust.IsOwner(name)
     local k = Trust.Key(name)
     return k ~= nil and OwnerKeys()[k] == true
@@ -148,6 +162,7 @@ function Trust.RoleOf(name)
     local entry = Data().list[k]
     if entry and entry.role == "blocked" then return "blocked" end
     if OwnerKeys()[k] then return "owner" end
+    if FixedModKeys()[k] then return "moderator" end   -- fest eingetragen (CodexOwners.lua)
     return entry and entry.role or nil
 end
 
