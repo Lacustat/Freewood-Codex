@@ -3557,7 +3557,7 @@ local function Build(content)
         end
     end
 
-    FW:On("CODEX_LISTLIMIT_CHANGED", function() if f:IsShown() then RefreshList() end end)
+    FW:On("CODEX_LISTLIMIT_CHANGED", function() if f:IsVisible() then RefreshList() end end)
 
     function Refresh()
         LayoutKinds()
@@ -3655,16 +3655,30 @@ local function Build(content)
         return table.concat(t, "\n")
     end
 
+    -- 0.50.2: IsVisible statt IsShown. IsShown bleibt nach dem ersten Oeffnen wahr, auch wenn das Freewood-Fenster zu
+    -- ist; dann baute jede Aenderung (Kill, Loot, Erfahrung) die ganze Liste unsichtbar neu (250-370 ms Ruckler).
+    -- Beim Oeffnen baut onShow ohnehin frisch auf. Bei offenem Fenster: hoechstens ein Neuaufbau je Sekunde.
+    local refreshPending = false
+    local function RefreshSoon()
+        if refreshPending then return end
+        refreshPending = true
+        local function Run()
+            refreshPending = false
+            if f:IsVisible() then RefreshList() end
+        end
+        if C_Timer and C_Timer.After then C_Timer.After(1, Run) else Run() end
+    end
+    f.RefreshSoon = RefreshSoon   -- fuer Tests
     FW:On("CODEX_CHANGED", function()
         dirty = true
         dataVersion = dataVersion + 1
-        if f:IsShown() then
-            RefreshList()
+        if f:IsVisible() then
+            RefreshSoon()
         end
     end, f)
     FW:On("CODEX_ITEMS_LOADED", function()
         dataVersion = dataVersion + 1
-        if f:IsShown() and (kind == "items" or kind == "units" or kind == "objects") then
+        if f:IsVisible() and (kind == "items" or kind == "units" or kind == "objects") then
             RefreshList()
             if (kind == "units" or kind == "objects") and selected and detailMissing then
                 ShowDetail()
