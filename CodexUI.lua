@@ -3042,6 +3042,21 @@ local function Build(content)
             end
         end
 
+        -- Material fuer Rezepte (seit 0.50.0, Codex.Uses)
+        local uses = Codex.Uses and Codex.Uses.Recipes(itemID, true) or {}
+        if #uses > 0 then
+            D:Add({ style = "heading", text = L.CODEX_SEC_REAGENTFOR })
+            for i, r in ipairs(uses) do
+                if i > 30 then break end
+                local right = string.format(L.CODEX_REAGENT_RIGHT, r.n or 1, r.prof or "?") .. (r.skill and ("  " .. string.format(L.CODEX_REAGENT_SKILL, r.skill)) or "")
+                if r.it then
+                    ItemRow(r.it, right, 0, "  |cff9a978c(" .. r.name .. ")|r")
+                else
+                    D:Add({ text = r.name, right = right })
+                end
+            end
+        end
+
         local rewardOf, itemFor = {}, {}
         for qid, q in pairs(Codex.V().quests) do
             local found = false
