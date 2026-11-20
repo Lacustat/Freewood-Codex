@@ -390,6 +390,7 @@ end, Hints)
 
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("codex-hints", {
+        module = "codex",       -- Einstellungen im Modul (Core 0.54.0)
         category = "quest",
         order = 106,
         height = 300,

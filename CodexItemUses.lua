@@ -255,6 +255,7 @@ end
 local UI = FW.UI
 if UI and UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("codex-openclick", {
+        module = "codex",       -- Einstellungen im Modul (Core 0.54.0)
         category = "database",
         order = 106,
         height = 120,

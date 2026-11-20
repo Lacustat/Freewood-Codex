@@ -797,6 +797,7 @@ FW:RegisterEvent("ADDON_LOADED", function(name) if name == "Blizzard_WorldMap" t
 
 if UI and UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("codex-rares", {
+        module = "codex",       -- Einstellungen im Modul (Core 0.54.0)
         category = "quest",
         order = 108,
         height = 220,

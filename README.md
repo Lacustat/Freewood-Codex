@@ -1,6 +1,6 @@
 # Freewood-Codex
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.52.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.53.0 · Interface 16001 (World of Warcraft: Forever).
 
 ![Codex_Items](https://github.com/Lacustat/Freewood-OctoWoW-Bilder/blob/main/database-item.jpg)
 
@@ -15,6 +15,7 @@
 Die Datenbank der Freewood-Familie. Sie lernt beim Spielen Quests, Kreaturen, Objekte, Items und Gebiete und zeigt sie mit Suche, Filtern und Karte. Eigene Beobachtungen gehen den mitgelieferten Startdaten immer vor.
 
 ### Funktionen
+- Ab 0.53.0: Alle Codex-Einstellungen (Liste, Favoriten, Teilen, Wegenetz, Flüge, Codex beim Item öffnen, Lern-Hinweise, Rare-Mob-Tracker) stehen im Reiter Datenbank hinter dem Knopf „Einstellungen“ oben rechts (braucht Core 0.55.0; mit älterem Core wie bisher im Reiter Einstellungen). Die Tooltip-Optionen des Codex bleiben in der gemeinsamen Tooltip-Liste im Reiter Einstellungen. Im Spiel ungeprüft.
 - Lokale Vorquest-Ueberlagerung `Codex.ExtPre` für andere Freewood-Addons (ersetzt Vorquests einer Quest, wird nie gespeichert und nie geteilt).
 - Lernt automatisch: Quest-Geber und Abgabe, Belohnungen, Ziele, Beute mit Drop-Chancen, Händlerwaren und Preise, Rollen (Händler, Flugmeister, Lehrer, Gastwirt …), Fundorte, Kampfdauer, Erfahrung.
 - Bereiche: Quests, Kreaturen, Objekte, Items, Gebiete, Lernplan. Suche, Filter, Sortierung, Favoriten, Anzeige auf der Weltkarte.
@@ -61,6 +62,7 @@ GPL-3.0, siehe `LICENSE`.
 The database of the Freewood family. It learns quests, creatures, objects, items and zones while you play and shows them with search, filters and a map. Your own observations always win over the bundled starter data.
 
 ### Features
+- Since 0.53.0: all Codex settings (list, favourites, sharing, path network, flights, open the Codex on an item, learning hints, rare mob tracker) are in the Database tab behind the "Settings" button at the top right (needs Core 0.55.0; with an older Core they stay in the Settings tab). The Codex tooltip options stay in the shared tooltip list in the Settings tab. Not verified in game.
 - Local prerequisite overlay `Codex.ExtPre` for other Freewood addons (replaces a quest's prerequisites, is never saved and never shared).
 - Learns automatically: quest givers and turn-ins, rewards, objectives, loot with drop chances, vendor wares and prices, roles (vendor, flight master, trainer, innkeeper …), locations, kill time, experience.
 - Sections: quests, creatures, objects, items, zones, learning plan. Search, filters, sorting, favourites, display on the world map.

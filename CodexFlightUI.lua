@@ -132,6 +132,7 @@ end)
 
 if UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("codex-flight", {
+        module = "codex",       -- Einstellungen im Modul (Core 0.54.0)
         category = "database",
         order = 108,
         height = 150,
