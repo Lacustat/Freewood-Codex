@@ -8,7 +8,9 @@
 --      und Text = als Ziel (sicherer Knopf mit /targetexact, nur ausserhalb des Kampfes moeglich), Rechtsklick = zu.
 --      Ton wie beim Postfach (Wecker, Ton-Einstellung der Animationen).
 --   4. Karte: alle bekannten Rare-Fundorte als Totenkopf; Mouseover zeigt Name, Stufe und Beute.
---   5. Einstellungen ("Quest & Hinweise"): Tracker an/aus, Karte an/aus (beides Standard aus), Test
+--   4b. Minikarte (seit 0.52.0): Totenkoepfe nur im sichtbaren Ausschnitt (Zoom, drehende Minikarte, Innenraum),
+--      Mouseover zeigt Name und Stufe; der zuletzt gemeldete Rare ist 10 Minuten groesser.
+--   5. Einstellungen ("Quest & Hinweise"): Tracker, Weltkarte, Minikarte (alle Standard aus), Test
 --   6. /fwrare (Test), /fwrare probe
 --
 -- Ungeprueft im Spiel: Vignetten fuer die alten Rares, PlayerModel:SetUnit/SetCreature, C_Map.GetMapWorldSize.
@@ -41,6 +43,7 @@ local function Set() return Codex.db and Codex.db.settings or {} end
 
 function R.TrackOn() return Set().rareTrack == true end
 function R.MapOn() return Set().rareMap == true end
+function R.MiniOn() return Set().rareMini == true end
 
 ------------------------------------------------------------------------
 -- 1. Daten
@@ -207,6 +210,7 @@ function R.Report(id, kind, unit, pos)
         if not (kind == "seen" and R.lastKind and R.lastKind[id] == "spawn") then return false end
     end
     R.last[id] = t
+    R.hot = { id = id, t = t }
     R.lastKind = R.lastKind or {}
     R.lastKind[id] = kind
     R.Show(id, kind, unit, pos)
@@ -580,6 +584,176 @@ function R.HookMap()
 end
 
 ------------------------------------------------------------------------
+-- 4b. Minikarte
+------------------------------------------------------------------------
+
+R.MINI_MAX = 20
+R.MINI_TICK = 0.2
+R.MINI_SIZE, R.MINI_HOT = 13, 20
+local OUTDOOR = { 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 }
+local INDOOR = { 300, 240, 180, 120, 80, 50 }
+
+-- Weltposition (Kontinent, x, y in Yards) wie im Levelplaner (C_Map.GetWorldPosFromMapPos), mit Zwischenspeicher
+local worldCache = {}
+function R.WorldPos(m, x, y)
+    local key = m .. ":" .. math.floor(x * 1000 + 0.5) .. ":" .. math.floor(y * 1000 + 0.5)
+    local c = worldCache[key]
+    if c == nil then
+        c = false
+        local CM = G.C_Map
+        if CM and CM.GetWorldPosFromMapPos and G.CreateVector2D then
+            local ok, cont, pos = pcall(function() return CM.GetWorldPosFromMapPos(m, G.CreateVector2D(x, y)) end)
+            if ok and cont and pos and pos.GetXY then
+                local ok2, wx, wy = pcall(pos.GetXY, pos)
+                if ok2 and type(wx) == "number" and type(wy) == "number" then c = { cont, wx, wy } end
+            end
+        end
+        worldCache[key] = c
+    end
+    if c then return c[1], c[2], c[3] end
+    return nil
+end
+
+-- Spieler: Weltposition und die Richtungen Ost/Sued der Karte in Weltkoordinaten
+function R.Player()
+    local CM = G.C_Map
+    if not (CM and CM.GetBestMapForUnit and CM.GetPlayerMapPosition) then return nil end
+    local m = CM.GetBestMapForUnit("player")
+    if not m then return nil end
+    local ok, pos = pcall(CM.GetPlayerMapPosition, m, "player")
+    if not ok or not pos or not pos.GetXY then return nil end
+    local x, y = pos:GetXY()
+    if not x or not y or (x == 0 and y == 0) then return nil end
+    local cont, wx, wy = R.WorldPos(m, x, y)
+    if not cont then return nil end
+    local _, ex, ey = R.WorldPos(m, math.min(x + 0.05, 1), y)
+    local _, sx, sy = R.WorldPos(m, x, math.min(y + 0.05, 1))
+    if not (ex and sx) then return nil end
+    local e1, e2, s1, s2 = ex - wx, ey - wy, sx - wx, sy - wy
+    local el, sl = math.sqrt(e1 * e1 + e2 * e2), math.sqrt(s1 * s1 + s2 * s2)
+    if el < 0.001 or sl < 0.001 then return nil end
+    return { m = m, cont = cont, x = wx, y = wy, e = { e1 / el, e2 / el }, s = { s1 / sl, s2 / sl } }
+end
+
+-- Fundorte der aktuellen Karte als Weltpunkte (je Karte einmal gerechnet)
+local miniCache = {}
+function R.MiniPoints(m)
+    local list = miniCache[m]
+    if list then return list end
+    list = {}
+    for id in pairs(R.KnownSet()) do
+        for _, s in ipairs(R.Spots(id, m)) do
+            local cont, wx, wy = R.WorldPos(m, s.x, s.y)
+            if cont then list[#list + 1] = { id = id, cont = cont, wx = wx, wy = wy } end
+        end
+    end
+    miniCache[m] = list
+    return list
+end
+function R.ResetMini() miniCache = {} end
+
+local function ViewRadius(MM)
+    local CMM = G.C_Minimap
+    if CMM and CMM.GetViewRadius then
+        local ok, r = pcall(CMM.GetViewRadius)
+        if ok and type(r) == "number" and r > 0 then return r end
+    end
+    local zoom = MM.GetZoom and MM:GetZoom() or 0
+    local indoor = false
+    if G.IsIndoors then local ok, v = pcall(G.IsIndoors) indoor = ok and v and true or false end
+    return (indoor and INDOOR or OUTDOOR)[(zoom or 0) + 1] or 200
+end
+
+local function Heading()
+    if not G.GetCVar or not G.GetPlayerFacing then return nil end
+    local okc, v = pcall(G.GetCVar, "rotateMinimap")
+    if not okc or v ~= "1" then return nil end
+    local ok, f = pcall(G.GetPlayerFacing)
+    if ok and type(f) == "number" then return (2 * math.pi - f) % (2 * math.pi) end
+    return nil
+end
+
+-- Tooltip der Minikarte: nur Name und Stufe
+function R.FillMiniTooltip(tt, id)
+    local name, l1, l2 = R.Info(id)
+    local lv = l1 and ((l2 and l2 ~= l1) and (l1 .. "-" .. l2) or tostring(l1)) or "?"
+    tt:SetText(name, 1, 0.82, 0)
+    tt:AddLine(string.format("%s %s  %s", (L().CODEX_RARE_LEVEL or "Level"), lv, "Rare"), 0.8, 0.8, 0.8)
+    tt:Show()
+end
+
+local miniPins = {}
+R.miniPins = miniPins
+local function MiniPin(i, MM)
+    local p = miniPins[i]
+    if p then return p end
+    p = G.CreateFrame("Button", nil, MM)
+    p:SetSize(R.MINI_SIZE, R.MINI_SIZE)
+    p:SetFrameLevel((MM:GetFrameLevel() or 1) + 7)
+    p.t = p:CreateTexture(nil, "OVERLAY")
+    p.t:SetAllPoints(p)
+    p.t:SetTexture("Interface\\TargetingFrame\\UI-TargetingFrame-Skull")
+    p:SetScript("OnEnter", function(self)
+        if G.GameTooltip and self.rare then
+            G.GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+            R.FillMiniTooltip(G.GameTooltip, self.rare)
+        end
+    end)
+    p:SetScript("OnLeave", function() if G.GameTooltip then G.GameTooltip:Hide() end end)
+    miniPins[i] = p
+    return p
+end
+
+-- Rueckgabe: Zahl der gezeigten Totenkoepfe
+function R.UpdateMinimap()
+    local MM = G.Minimap
+    local used = 0
+    local p = MM and R.MiniOn() and R.Player()
+    if p then
+        local radius = ViewRadius(MM)
+        local heading = Heading()
+        local half = (MM:GetWidth() or 140) / 2 - 4
+        local scale = half / radius
+        local hot = R.hot and (Now() - R.hot.t) < R.QUIET_SECS and R.hot.id or nil
+        local list = {}
+        for _, pt in ipairs(R.MiniPoints(p.m)) do
+            if pt.cont == p.cont then
+                local dx, dy = pt.wx - p.x, pt.wy - p.y
+                local east = dx * p.e[1] + dy * p.e[2]
+                local north = -(dx * p.s[1] + dy * p.s[2])
+                local d = math.sqrt(east * east + north * north)
+                -- nur im sichtbaren Ausschnitt (mit etwas Abstand zum Rand)
+                if d * scale <= half - R.MINI_SIZE / 2 then
+                    list[#list + 1] = { id = pt.id, d = d, east = east, north = north }
+                end
+            end
+        end
+        table.sort(list, function(a, b)
+            if (a.id == hot) ~= (b.id == hot) then return a.id == hot end
+            return a.d < b.d
+        end)
+        for _, e in ipairs(list) do
+            if used >= R.MINI_MAX then break end
+            local ex, ny = e.east, e.north
+            if heading then
+                local c, sn = math.cos(heading), math.sin(heading)
+                ex, ny = ex * c - ny * sn, ex * sn + ny * c
+            end
+            used = used + 1
+            local pin = MiniPin(used, MM)
+            local size = e.id == hot and R.MINI_HOT or R.MINI_SIZE
+            pin:SetSize(size, size)
+            pin.rare = e.id
+            pin:ClearAllPoints()
+            pin:SetPoint("CENTER", MM, "CENTER", ex * scale, ny * scale)
+            pin:Show()
+        end
+    end
+    for i = used + 1, #miniPins do miniPins[i]:Hide() end
+    return used
+end
+
+------------------------------------------------------------------------
 -- Ereignisse
 ------------------------------------------------------------------------
 
@@ -602,7 +776,17 @@ FW:RegisterEvent("PLAYER_REGEN_ENABLED", function()
 end)
 FW:RegisterEvent("PLAYER_LOGIN", function()
     R.ResetCache()
-    if G.C_Timer and G.C_Timer.NewTicker then G.C_Timer.NewTicker(R.SPAWN_TICK, function() pcall(R.CheckSpawns) end) end
+    R.ResetMini()
+    if G.C_Timer and G.C_Timer.NewTicker then
+        G.C_Timer.NewTicker(R.SPAWN_TICK, function() pcall(R.CheckSpawns) end)
+        -- Minikarte: nur rechnen, wenn an (sonst einmal verbergen)
+        local was = false
+        G.C_Timer.NewTicker(R.MINI_TICK, function()
+            local on = R.MiniOn()
+            if on or was then pcall(R.UpdateMinimap) end
+            was = on
+        end)
+    end
     if G.C_Timer then G.C_Timer.After(3, function() pcall(R.HookMap) end) end
 end)
 FW:RegisterEvent("ADDON_LOADED", function(name) if name == "Blizzard_WorldMap" then pcall(R.HookMap) end end)
@@ -615,7 +799,7 @@ if UI and UI.RegisterSettingsSection then
     UI:RegisterSettingsSection("codex-rares", {
         category = "quest",
         order = 108,
-        height = 190,
+        height = 220,
         build = function(parent)
             local Lx = L()
             local f, stack = UI.CreateSection(parent, Lx.CODEX_RARE_HEADER)
@@ -626,12 +810,15 @@ if UI and UI.RegisterSettingsSection then
             local map = UI.CreateCheckbox(f, Lx.CODEX_RARE_MAP, function() return R.MapOn() end,
                 function(on) Set().rareMap = on and true or false; R.HookMap(); pcall(R.RefreshMap) end)
             stack:Add(map, { fit = true, gap = 4 })
+            local mini = UI.CreateCheckbox(f, Lx.CODEX_RARE_MINI, function() return R.MiniOn() end,
+                function(on) Set().rareMini = on and true or false; pcall(R.UpdateMinimap) end)
+            stack:Add(mini, { fit = true, gap = 4 })
             stack:Add(UI.CreateButton(f, Lx.CODEX_RARE_TEST, 200, 26, function() R.Test() end, "default"), { height = 26, gap = 10 })
             stack:Layout()
-            f.track, f.map = track, map
+            f.track, f.map, f.mini = track, map, mini
             return f
         end,
-        refresh = function(frame) frame.track:Refresh() frame.map:Refresh() end,
+        refresh = function(frame) frame.track:Refresh() frame.map:Refresh() frame.mini:Refresh() end,
     })
 end
 
@@ -657,9 +844,10 @@ function R.Probe()
     local n = 0
     for _ in pairs(R.KnownSet()) do n = n + 1 end
     local m = G.CreateFrame and select(2, pcall(G.CreateFrame, "PlayerModel"))
-    FW:Print(string.format("Rares bekannt: %d, C_VignetteInfo: %s, GetMapWorldSize: %s, PlayerModel: %s (SetUnit %s, SetCreature %s), Tracker: %s, Karte: %s",
+    FW:Print(string.format("Rares bekannt: %d, C_VignetteInfo: %s, GetMapWorldSize: %s, PlayerModel: %s (SetUnit %s, SetCreature %s), Tracker: %s, Karte: %s, Minikarte: %s (Weltposition %s, Sichtweite %s)",
         n, Has(V and V.GetVignetteInfo), Has(M and M.GetMapWorldSize), Has(type(m) == "table"),
-        Has(type(m) == "table" and m.SetUnit), Has(type(m) == "table" and m.SetCreature), tostring(R.TrackOn()), tostring(R.MapOn())))
+        Has(type(m) == "table" and m.SetUnit), Has(type(m) == "table" and m.SetCreature), tostring(R.TrackOn()), tostring(R.MapOn()),
+        tostring(R.MiniOn()), Has(M and M.GetWorldPosFromMapPos), Has(G.C_Minimap and G.C_Minimap.GetViewRadius)))
 end
 
 G.SLASH_FWRARE1 = "/fwrare"

@@ -273,4 +273,56 @@ assert(win.shown and R.current.id == 100 and sounds == s0 + 1, "/fwrare zeigt Te
 SlashCmdList.FWRARE("probe")
 assert(printed[#printed]:find("Rares bekannt", 1, true), "probe")
 
+-- Minikarte (0.52.0)
+local px, py = 0.5, 0.5
+_G.CreateVector2D = function(x, y) return { x = x, y = y } end
+local function Vec(x, y) return { GetXY = function() return x, y end } end
+C_Map.GetPlayerMapPosition = function() return Vec(px, py) end
+C_Map.GetWorldPosFromMapPos = function(m, v) if m == 1411 then return 1, Vec(v.x * 1000, v.y * 1000) end end
+local radius = 200
+_G.C_Minimap = { GetViewRadius = function() return radius end }
+_G.Minimap = setmetatable({ w = 140 }, M)
+R.hot = nil
+assert(R.UpdateMinimap() == 0, "Minikarte aus")
+db.settings.rareMini = true
+assert(R.UpdateMinimap() == 1, "nur der nahe Fundort sichtbar")
+local mp = R.miniPins[1]
+assert(mp.shown and mp.rare == 100 and mp.w == R.MINI_SIZE, "normaler Totenkopf")
+local pt = mp.points[1]
+assert(pt[1] == "CENTER" and pt[3] == "CENTER" and pt[4] > 0 and pt[5] < 0, "Ost positiv, Sued nach unten")
+-- hervorgehoben: zuletzt gemeldet, 10 Minuten
+R.hot = { id = 100, t = clock }
+R.UpdateMinimap()
+assert(mp.w == R.MINI_HOT, "zuletzt gemeldet: groesser")
+clock = clock + 601
+R.UpdateMinimap()
+assert(mp.w == R.MINI_SIZE, "nach 10 Minuten wieder normal")
+-- weiter weg zoomen: mehr Fundorte sichtbar, nichts am Rand
+radius = 800
+assert(R.UpdateMinimap() == 3, "alle drei im Ausschnitt")
+radius = 550
+assert(R.UpdateMinimap() == 2, "der 633 Yards entfernte (Rare 200) nicht, 471 Yards ja")
+radius = 450
+assert(R.UpdateMinimap() == 1, "knapp ausserhalb: nicht am Rand")
+radius = 200
+-- drehende Minikarte
+_G.GetCVar = function(k) return k == "rotateMinimap" and "1" or nil end
+_G.GetPlayerFacing = function() return math.pi end   -- Blick nach Sueden
+R.UpdateMinimap()
+pt = mp.points[1]
+assert(pt[4] < 0 and pt[5] > 0, "gedreht: Suedost liegt vorne links")
+_G.GetCVar = nil
+-- Tooltip: nur Name und Stufe
+local ml = {}
+R.FillMiniTooltip({ SetText = function(_, t) ml[#ml + 1] = t end, AddLine = function(_, t) ml[#ml + 1] = t end, Show = noop }, 100)
+assert(#ml == 2 and ml[1] == "Seed Rare" and ml[2]:find("20-22", 1, true), "Minikarte-Tooltip ohne Beute")
+-- anderer Kontinent / keine Weltposition
+C_Map.GetBestMapForUnit = function() return 1429 end
+assert(R.UpdateMinimap() == 0 and not mp.shown, "andere Karte: nichts")
+C_Map.GetBestMapForUnit = function() return 1411 end
+-- Haken in den Einstellungen
+local f2 = sections["codex-rares"].build(CreateFrame("Frame"))
+f2.mini.set(false)
+assert(db.settings.rareMini == false and R.UpdateMinimap() == 0, "Haken aus")
+
 print("rares_test: ok")
