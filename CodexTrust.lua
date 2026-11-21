@@ -52,10 +52,18 @@ local function RealmPart(name)
     return nil
 end
 
+-- Eigener Realm, klein und ohne Leerzeichen. Ueber den Core (merkt sich den letzten echten Namen): Forever lieferte
+-- seit dem 20.11.2026 zeitweise "" fuer beide Realm-Funktionen (Codex 0.53.1, Forever_Failure F-37).
+local function NonEmpty(v) if type(v) == "string" and v ~= "" then return v end return nil end
+local function CoreUtil() local u = FW.Util if type(u) == "table" then return u end return nil end
 local function OwnRealm()
-    local r = (GetNormalizedRealmName and GetNormalizedRealmName()) or (GetRealmName and GetRealmName()) or ""
+    local U = CoreUtil()
+    local r = (U and type(U.NormalizedRealm) == "function" and NonEmpty(U.NormalizedRealm()))
+        or NonEmpty(GetNormalizedRealmName and GetNormalizedRealmName())
+        or NonEmpty(GetRealmName and GetRealmName()) or ""
     return (tostring(r):gsub("[%s%-]", ""):lower())
 end
+Trust.OwnRealm = OwnRealm
 
 -- Der eigene Realm hat im Spiel mehrere Schreibweisen (z.B. GetNormalizedRealmName = "ClassicBetaPvP2",
 -- UnitFullName liefert "Steel"). Alle gelten als derselbe Realm und werden auf OwnRealm() vereinheitlicht.
@@ -317,4 +325,42 @@ SlashCmdList["FREEWOODROLE"] = function()
         FW:Print(string.format("Rolle: Eigentuemer \"%s\" -> %s%s", tostring(entry), tostring(k), k == self and "  <== du" or ""))
     end
     FW:Print(string.format("Rolle: dein Schluessel %s steht %s in der Eigentuemer-Liste", tostring(self), found and "" or "NICHT"))
+end
+
+-- Eintraege mit leerem Realm ("name-") in den eigenen Realm uebernehmen: Vertrauensliste und bekannte Flugpunkte
+-- (0.53.1). Rueckgabe: Zahl der uebernommenen Eintraege.
+function Trust.FixEmptyRealm()
+    local realm = OwnRealm()
+    if realm == "" then return 0 end
+    local db = rawget(FW, "db")
+    local raw = type(db) == "table" and type(db.modules) == "table" and db.modules.Codex
+    if type(raw) ~= "table" then return 0 end
+    local n = 0
+    local list = raw.trust and raw.trust.list
+    if type(list) == "table" then
+        for key, e in pairs(list) do
+            if type(key) == "string" and key:sub(-1) == "-" then
+                local newKey = key .. realm
+                if list[newKey] == nil then list[newKey] = e end
+                list[key] = nil
+                n = n + 1
+            end
+        end
+    end
+    local known = raw.flight and raw.flight.known
+    if type(known) == "table" then
+        for key, pts in pairs(known) do
+            if type(key) == "string" and key:sub(-1) == "-" and type(pts) == "table" then
+                local newKey = key .. realm
+                known[newKey] = known[newKey] or {}
+                for id, v in pairs(pts) do if known[newKey][id] == nil then known[newKey][id] = v end end
+                known[key] = nil
+                n = n + 1
+            end
+        end
+    end
+    return n
+end
+if CoreUtil() and type(CoreUtil().OnRealmFix) == "function" then
+    CoreUtil().OnRealmFix("Codex", Trust.FixEmptyRealm)
 end
