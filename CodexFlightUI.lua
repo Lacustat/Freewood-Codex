@@ -139,8 +139,7 @@ if UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CODEX_TAXI_HEADER)
-            local note = UI.CreateLabel(f, L.CODEX_TAXI_NOTE, { size = 11, color = "textDim", justifyV = "TOP" })
-            stack:Add(note, { fit = true, gap = 8 })
+            if f.AddInfo then f:AddInfo(L.CODEX_TAXI_NOTE) end
             local cb = UI.CreateCheckbox(f, L.CODEX_TAXI_SWITCH, function() return Flight.WindowOn() end,
                 function(on) Settings().flightWindow = on and true or false end)
             stack:Add(cb, { fit = true, gap = 6 })

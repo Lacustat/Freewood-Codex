@@ -271,7 +271,7 @@ if UI and UI.RegisterSettingsSection then
                 onChange = function(v) U.SetClickSetting(v) end,
             })
             stack:Add(dd, { height = 22, gap = 6 })
-            stack:Add(UI.CreateLabel(f, L.CODEX_OPENCLICK_NOTE, { size = 11, color = "textDim", justifyV = "TOP" }), { fit = true, gap = 8 })
+            if f.AddInfo then f:AddInfo(L.CODEX_OPENCLICK_NOTE) end
             stack:Layout()
             f.dd = dd
             if dd.SetValue then dd:SetValue(U.ClickSetting()) end

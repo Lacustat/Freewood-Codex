@@ -1339,8 +1339,7 @@ if UI and UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CODEX_PATH_HEADER)
-            local note = UI.CreateLabel(f, L.CODEX_PATH_NOTE, { size = 11, color = "textDim", justifyV = "TOP" })
-            stack:Add(note, { fit = true, gap = 8 })
+            if f.AddInfo then f:AddInfo(L.CODEX_PATH_NOTE) end
             local box = UI.CreateCheckbox(f, L.CODEX_PATH_SWITCH, function() return Path.Enabled() end,
                 function(on) Path.SetEnabled(on) end)
             stack:Add(box, { fit = true, gap = 10 })

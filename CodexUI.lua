@@ -3888,7 +3888,7 @@ if UI.RegisterSettingsSection then
             slider.onText = function(v) label:SetText(string.format(L.CODEX_LISTLIMIT, v)) end
             slider:Refresh()
             stack:Add(slider, { height = 20, gap = 4 })
-            stack:Add(UI.CreateLabel(f, L.CODEX_LISTLIMIT_NOTE, { size = 11, color = "textDim", justifyV = "TOP" }), { fit = true, gap = 8 })
+            if f.AddInfo then f:AddInfo(L.CODEX_LISTLIMIT_NOTE) end
             stack:Layout()
             f.slider = slider
             return f

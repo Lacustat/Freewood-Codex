@@ -16,8 +16,7 @@ local function Build(parent)
     local L = FW.L
     local f, stack = UI.CreateSection(parent, L.CODEX_SHARE_HEADER)
 
-    local note = UI.CreateLabel(f, L.CODEX_SHARE_NOTE, { size = 11, color = "textDim", justifyV = "TOP" })
-    stack:Add(note, { fit = true, gap = 8 })
+    if f.AddInfo then f:AddInfo(L.CODEX_SHARE_NOTE) end
 
     local box = UI.CreateCheckbox(f, L.CODEX_SHARE_SWITCH, function()
         return Sync:IsEnabled()

@@ -397,8 +397,7 @@ if UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CODEX_HINT_HEADER)
-            local note = UI.CreateLabel(f, L.CODEX_HINT_NOTE, { size = 11, color = "textDim", justifyV = "TOP" })
-            stack:Add(note, { fit = true, gap = 8 })
+            if f.AddInfo then f:AddInfo(L.CODEX_HINT_NOTE) end
             local classBox = UI.CreateCheckbox(f, L.CODEX_HINT_CLASS_SWITCH, function() return Hints.ClassOn() end,
                 function(on) Codex.db.settings.hintClass = on and true or false end)
             stack:Add(classBox, { fit = true, gap = 10 })

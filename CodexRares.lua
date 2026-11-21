@@ -804,7 +804,7 @@ if UI and UI.RegisterSettingsSection then
         build = function(parent)
             local Lx = L()
             local f, stack = UI.CreateSection(parent, Lx.CODEX_RARE_HEADER)
-            stack:Add(UI.CreateLabel(f, Lx.CODEX_RARE_NOTE, { size = 11, color = "textDim", justifyV = "TOP" }), { fit = true, gap = 8 })
+            if f.AddInfo then f:AddInfo(Lx.CODEX_RARE_NOTE) end
             local track = UI.CreateCheckbox(f, Lx.CODEX_RARE_TRACK, function() return R.TrackOn() end,
                 function(on) Set().rareTrack = on and true or false end)
             stack:Add(track, { fit = true, gap = 8 })

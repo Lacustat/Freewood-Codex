@@ -104,7 +104,7 @@ end
 
 local function BuildEdit(parent, onChanged)
     local L = FW.L
-    local win = MakeWindow(parent, 480, 520)
+    local win = MakeWindow(parent, 480, 486)
     local state = {}
 
     local title = UI.CreateLabel(win, "", { font = "heading", size = 14, color = "goldLight" })
@@ -127,17 +127,17 @@ local function BuildEdit(parent, onChanged)
     local enLink = MakeLink(win, 448)
     enLink:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -192)
 
-    local hint = UI.CreateLabel(win, "", { size = 11, color = "textDim", justifyV = "TOP" })
-    hint:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -222)
-    hint:SetPoint("TOPRIGHT", win, "TOPRIGHT", -16, -222)
-    hint:SetHeight(32)
-    hint:SetWordWrap(true)
+    -- Erklaerung als "i" hinter dem Titel (0.54.0, vorher Textzeile unter den Feldern)
+    local hintText = ""
+    if UI.CreateInfoIcon then
+        UI.CreateInfoIcon(win, function() return title:GetText() end, function() return hintText end):SetPoint("LEFT", title, "RIGHT", 6, 0)
+    end
 
     local sugTitle = UI.CreateLabel(win, L.CODEX_NAME_KILLS, { size = 12, color = "goldLight" })
-    sugTitle:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -260)
+    sugTitle:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -226)
     local sugNone = UI.CreateLabel(win, L.CODEX_NAME_NOKILLS, { size = 11, color = "textDim", justifyV = "TOP" })
-    sugNone:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -284)
-    sugNone:SetPoint("TOPRIGHT", win, "TOPRIGHT", -16, -284)
+    sugNone:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -250)
+    sugNone:SetPoint("TOPRIGHT", win, "TOPRIGHT", -16, -250)
     sugNone:SetHeight(32)
     sugNone:SetWordWrap(true)
 
@@ -151,7 +151,7 @@ local function BuildEdit(parent, onChanged)
         local b = UI.CreateButton(win, "", 448, 24, function(self)
             if self.fwText then Fill(self.fwText) end
         end, "default")
-        b:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -284 - (i - 1) * 28)
+        b:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -250 - (i - 1) * 28)
         b:Hide()
         sugButtons[i] = b
     end
@@ -183,7 +183,7 @@ local function BuildEdit(parent, onChanged)
         local de, en = Codex:GetCustom(kind, id)
         deBox.edit:SetText(de or "")
         enBox.edit:SetText(en or "")
-        hint:SetText((kind == "items" and L.CODEX_NAME_HINT_LOCAL or L.CODEX_NAME_HINT) .. "\n" .. (L.CODEX_NAME_LINK or ""))
+        hintText = { kind == "items" and L.CODEX_NAME_HINT_LOCAL or L.CODEX_NAME_HINT, L.CODEX_NAME_LINK }
         deLink.SetURL(NameUI.LookupURL(kind, id, "de"))
         enLink.SetURL(NameUI.LookupURL(kind, id, "en"))
         local names = {}
@@ -349,14 +349,13 @@ local function BuildProps(parent, onChanged)
         b:Hide()
         sugBtns[i] = b
     end
-    local zoneHint = UI.CreateLabel(win, L.CODEX_PROPS_ZONE_HINT, { size = 11, color = "textDim", justifyV = "TOP" })
-    zoneHint:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -92 - MAXZ * 24 - 40 - 5 * 24 - 2)
-    zoneHint:SetPoint("TOPRIGHT", win, "TOPRIGHT", -16, -92 - MAXZ * 24 - 40 - 5 * 24 - 2)
-    zoneHint:SetHeight(30)
-    zoneHint:SetWordWrap(true)
+    -- Erklaerungen als "i" (0.54.0): Zonen hinter "Zonen", Speichern/Senden hinter dem Titel
+    if UI.CreateInfoIcon then
+        UI.CreateInfoIcon(win, L.CODEX_PROPS_ZONES, L.CODEX_PROPS_ZONE_HINT):SetPoint("LEFT", zoneTitle, "RIGHT", 6, 0)
+    end
 
     -- Dungeon / Klasse / Stufen
-    local baseY = 92 + MAXZ * 24 + 40 + 5 * 24 + 36
+    local baseY = 92 + MAXZ * 24 + 40 + 5 * 24 + 8
     local dgLabel = UI.CreateLabel(win, L.CODEX_PROPS_DUNGEON, { size = 12 })
     dgLabel:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -baseY - 4)
     local dgBtn = UI.CreateButton(win, "", 200, 24, function()
@@ -409,11 +408,10 @@ local function BuildProps(parent, onChanged)
     QField("tx", L.CODEX_PROPS_TEXT, 300, 600, QROW.tx)
     QField("si", L.CODEX_PROPS_STARTITEM, 120, 9, QROW.si)
 
-    local hint = UI.CreateLabel(win, L.CODEX_PROPS_HINT, { size = 11, color = "textDim", justifyV = "TOP" })
-    hint:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -baseY - 104)
-    hint:SetPoint("TOPRIGHT", win, "TOPRIGHT", -16, -baseY - 104)
-    hint:SetHeight(58)
-    hint:SetWordWrap(true)
+    local propsHint = { L.CODEX_PROPS_HINT }
+    if UI.CreateInfoIcon then
+        UI.CreateInfoIcon(win, function() return title:GetText() end, function() return propsHint end):SetPoint("LEFT", title, "RIGHT", 6, 0)
+    end
 
     function win.Refresh()
         for i = 1, MAXZ do
@@ -449,12 +447,8 @@ local function BuildProps(parent, onChanged)
         for key, lbl in pairs(qLabels) do
             if isQuest then lbl:Show(); qBoxes[key]:Show() else lbl:Hide(); qBoxes[key]:Hide() end
         end
-        -- fuer Quests ist das Fenster hoeher, der Hinweis rutscht nach unten
-        win:SetHeight(isQuest and (baseY + 392) or 650)
-        hint:ClearAllPoints()
-        local hy = isQuest and (QROW.si + 40) or 104
-        hint:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -baseY - hy)
-        hint:SetPoint("TOPRIGHT", win, "TOPRIGHT", -16, -baseY - hy)
+        -- fuer Quests ist das Fenster hoeher (Hinweis seit 0.54.0 im "i" am Titel)
+        win:SetHeight(isQuest and (baseY + QROW.si + 84) or (baseY + 156))
     end
 
     local function Collect()
@@ -510,8 +504,8 @@ local function BuildProps(parent, onChanged)
         l1Box.edit:SetText(ed.l1 and tostring(ed.l1) or "")
         l2Box.edit:SetText(ed.l2 and tostring(ed.l2) or "")
         preBox.edit:SetText(kind == "items" and (ed.key and tostring(ed.key) or "") or (ed.pre and table.concat(ed.pre, ", ") or ""))
-        hint:SetText(kind == "quests" and (L.CODEX_PROPS_PRE_HINT .. "\n" .. L.CODEX_PROPS_HINT)
-            or (kind == "items" and (L.CODEX_PROPS_KEY_HINT .. "\n" .. L.CODEX_PROPS_HINT)) or L.CODEX_PROPS_HINT)
+        propsHint = kind == "quests" and { L.CODEX_PROPS_PRE_HINT, " ", L.CODEX_PROPS_HINT }
+            or (kind == "items" and { L.CODEX_PROPS_KEY_HINT, " ", L.CODEX_PROPS_HINT }) or { L.CODEX_PROPS_HINT }
         for _, key in ipairs({ "nx", "bf", "af" }) do
             qBoxes[key].edit:SetText(ed[key] and table.concat(ed[key], ", ") or "")
         end
@@ -534,7 +528,7 @@ end
 -- Stufenspanne eines Gebiets von Hand setzen (nur Berechtigte): geht wie alle Eigenschaften ueber die Vorschau im Dev-Reiter
 local function BuildZoneProps(parent, onChanged)
     local L = FW.L
-    local win = MakeWindow(parent, 420, 210)
+    local win = MakeWindow(parent, 420, 150)
     local state = {}
     local title = UI.CreateLabel(win, "", { font = "heading", size = 14, color = "goldLight" })
     title:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -14)
@@ -548,11 +542,9 @@ local function BuildZoneProps(parent, onChanged)
     local l2Box = MakeInput(win, 70)
     l2Box:SetPoint("LEFT", l1Box, "RIGHT", 20, 0)
     l2Box.edit:SetMaxLetters(3)
-    local hint = UI.CreateLabel(win, L.CODEX_ZONE_EDIT_HINT, { size = 11, color = "textDim", justifyV = "TOP" })
-    hint:SetPoint("TOPLEFT", win, "TOPLEFT", 16, -86)
-    hint:SetPoint("TOPRIGHT", win, "TOPRIGHT", -16, -86)
-    hint:SetHeight(60)
-    hint:SetWordWrap(true)
+    if UI.CreateInfoIcon then
+        UI.CreateInfoIcon(win, function() return title:GetText() end, L.CODEX_ZONE_EDIT_HINT):SetPoint("LEFT", title, "RIGHT", 6, 0)
+    end
     local function Save(clear)
         if state.key then
             local ed

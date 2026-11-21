@@ -26,11 +26,10 @@ local function Build()
 
     local title = UI.CreateLabel(w, L.CODEX_FAVX_TITLE, { font = "heading", size = 14, color = "goldLight" })
     title:SetPoint("TOPLEFT", w, "TOPLEFT", 16, -14)
-    local note = UI.CreateLabel(w, L.CODEX_FAVX_NOTE, { size = 11, color = "textDim", justifyV = "TOP" })
-    note:SetPoint("TOPLEFT", w, "TOPLEFT", 16, -40)
-    note:SetPoint("TOPRIGHT", w, "TOPRIGHT", -16, -40)
-    note:SetHeight(44)
-    note:SetWordWrap(true)
+    -- Erklaerung als "i" hinter dem Titel (0.54.0)
+    if UI.CreateInfoIcon then
+        UI.CreateInfoIcon(w, L.CODEX_FAVX_TITLE, L.CODEX_FAVX_NOTE):SetPoint("LEFT", title, "RIGHT", 6, 0)
+    end
 
     local box = UI.CreatePanel(w, "bgDeep", "bronze")
     box:SetHeight(26)
@@ -93,8 +92,7 @@ if UI.RegisterSettingsSection then
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CODEX_FAVX_HEADER)
-            local note = UI.CreateLabel(f, L.CODEX_FAVX_SECTION_NOTE, { size = 11, color = "textDim", justifyV = "TOP" })
-            stack:Add(note, { fit = true, gap = 8 })
+            if f.AddInfo then f:AddInfo(L.CODEX_FAVX_SECTION_NOTE) end
             local open = UI.CreateButton(f, L.CODEX_FAVX_OPEN, 240, 26, function() FavUI.Open() end, "default")
             stack:Add(open, { height = 26, gap = 10 })
             stack:Layout()
