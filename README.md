@@ -1,6 +1,6 @@
 # Freewood-Codex
 
-**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.54.0 · Interface 16001 (World of Warcraft: Forever).
+**Deutsch & English · German & English.** Autor · Author: Lacustat. Version 0.55.0 · Interface 16001 (World of Warcraft: Forever).
 
 ![Codex_Items](https://github.com/Lacustat/Freewood-OctoWoW-Bilder/blob/main/database-item.jpg)
 
@@ -15,6 +15,7 @@
 Die Datenbank der Freewood-Familie. Sie lernt beim Spielen Quests, Kreaturen, Objekte, Items und Gebiete und zeigt sie mit Suche, Filtern und Karte. Eigene Beobachtungen gehen den mitgelieferten Startdaten immer vor.
 
 ### Funktionen
+- Ab 0.55.0: Lern-Hinweise als **Gratulation im Blizzard-Stil**: nur auf geraden Stufen (2, 4, 6 …) oben groß das Klassen-Icon aus dem Freewood-Design, „Gratulation! Du hast Level XY erreicht“ und darunter, was du jetzt beim Klassenlehrer lernen kannst (Symbol, Rang, Preis, Gesamtpreis, fehlendes Gold). Ohne Lehrer-Daten erscheint die Gratulation mit dem Hinweis, den Lehrer einmal zu besuchen. Berufe genauso mit dem Berufs-Icon: bei neuen Rezepten und an den Stufengrenzen 75, 150 und 225 (Geselle ab Stufe 10, Experte ab 20, Fachmann ab 35), auch für Sammelberufe. Blendet nach 5 Sekunden aus, Klick öffnet den Lernplan, im Kampf wartet sie. Dazu ein Blizzard-Sound aus dem Spiel, wählbar in den Einstellungen (Quest abgeschlossen, Bereitschaftscheck, Schlachtzugswarnung, Schlachtfeld bereit, Stufenaufstieg, kein Sound) mit Knopf zum Abspielen. Test `tests/hints_test.lua`. Im Spiel ungeprüft.
 - Ab 0.54.0: Erklärungen als goldenes „i“ aus dem Core (braucht Core 0.58.0, sonst fehlen sie nur): in allen Codex-Einstellungen hinter der Überschrift, im Favoriten-Export, in den Fenstern „Name bearbeiten“, „Eigenschaften“ (Zonen-Hinweis hinter „Zonen“) und „Stufenspanne“; die Fenster sind dadurch kleiner. Der Hinweis im Rare-Fenster bleibt sichtbar (wechselt im Kampf). Im Spiel ungeprüft.
 - Ab 0.53.1: Eigener Realm über den Core (leerer Text vom Spiel zählt nicht). Vertrauensliste und bekannte Flugpunkte unter „name-“ werden beim Anmelden in den eigenen Realm übernommen. Braucht Core 0.57.0.
 - Ab 0.53.0: Alle Codex-Einstellungen (Liste, Favoriten, Teilen, Wegenetz, Flüge, Codex beim Item öffnen, Lern-Hinweise, Rare-Mob-Tracker) stehen im Reiter Datenbank hinter dem Knopf „Einstellungen“ oben rechts (braucht Core 0.55.0; mit älterem Core wie bisher im Reiter Einstellungen). Die Tooltip-Optionen des Codex bleiben in der gemeinsamen Tooltip-Liste im Reiter Einstellungen. Im Spiel ungeprüft.
@@ -64,6 +65,7 @@ GPL-3.0, siehe `LICENSE`.
 The database of the Freewood family. It learns quests, creatures, objects, items and zones while you play and shows them with search, filters and a map. Your own observations always win over the bundled starter data.
 
 ### Features
+- Since 0.55.0: Learning hints as a **congratulation in Blizzard style**: only on even levels (2, 4, 6 …) the large class icon from the Freewood design on top, "Congratulations! You have reached level XY" and below what you can now learn at your class trainer (icon, rank, price, total, missing gold). Without trainer data the congratulation shows with a hint to visit the trainer once. Professions the same with the profession icon: on new recipes and at the rank limits 75, 150 and 225 (journeyman from level 10, expert from 20, artisan from 35), gathering professions too. Fades after 5 seconds, a click opens the learning plan, waits during combat. Plus a Blizzard sound from the game, selectable in the settings (quest complete, ready check, raid warning, battleground ready, level up, no sound) with a play button. Test `tests/hints_test.lua`. Not verified in game.
 - Since 0.54.0: explanations as the golden "i" from the Core (needs Core 0.58.0, otherwise they are just missing): in all Codex settings behind the heading, in the favourites export, in the windows "Edit name", "Properties" (zone hint behind "Zones") and "Level range"; the windows are smaller as a result. The hint in the rare popup stays visible (changes in combat). Not verified in game.
 - Since 0.53.1: own realm via the Core (empty text from the game does not count). Trust list and known flight points under "name-" are merged into the own realm on login. Needs Core 0.57.0.
 - Since 0.53.0: all Codex settings (list, favourites, sharing, path network, flights, open the Codex on an item, learning hints, rare mob tracker) are in the Database tab behind the "Settings" button at the top right (needs Core 0.55.0; with an older Core they stay in the Settings tab). The Codex tooltip options stay in the shared tooltip list in the Settings tab. Not verified in game.

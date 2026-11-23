@@ -1,6 +1,8 @@
 -- Freewood-Codex: Lern-Hinweise
--- Nach einem Stufenaufstieg (ausserhalb des Kampfes) oder einer neuen Berufsstufe zeigt ein kurzer Hinweis
--- in der Bildschirmmitte, was man jetzt beim Lehrer lernen kann. Grundlage: Lernplan (Lehrer-Daten).
+-- Nach einem Stufenaufstieg auf eine gerade Stufe (ausserhalb des Kampfes) oder einer neuen Berufsstufe zeigt ein
+-- Gratulationsfenster im Blizzard-Stil in der Bildschirmmitte das grosse Klassen- bzw. Berufs-Icon (Freewood-Design),
+-- "Gratulation" und was man jetzt beim Lehrer lernen kann (0.55.0). Grundlage: Lernplan (Lehrer-Daten).
+-- Dazu ein Blizzard-Sound aus dem Spiel (Auswahl in den Einstellungen, nichts mitgeliefert).
 
 local ADDON, NS = ...
 
@@ -17,9 +19,10 @@ Codex.Hints = Hints
 
 local DURATION = 5
 local FADE = 0.6
-local MAX_ROWS = 5
+local MAX_ROWS = 6
 local ROW_H = 24
-local WIDTH = 380
+local WIDTH = 440
+local ICON = 112
 
 ------------------------------------------------------------------------
 -- Einstellungen
@@ -91,6 +94,79 @@ function Hints.ProfEntries(skill, from, to)
 end
 
 ------------------------------------------------------------------------
+-- Berufe: Name aus dem Chat -> Icon-Schlüssel, Stufengrenzen beim Lehrer
+------------------------------------------------------------------------
+
+Hints.CRAFT_NAMES = {
+    alchemie = "alchemy", alchemy = "alchemy", schmiedekunst = "blacksmithing", blacksmithing = "blacksmithing",
+    kochkunst = "cooking", kochen = "cooking", cooking = "cooking", verzauberkunst = "enchanting", enchanting = "enchanting",
+    ingenieurskunst = "engineering", engineering = "engineering", ["erste hilfe"] = "firstaid", ["first aid"] = "firstaid",
+    angeln = "fishing", fishing = "fishing", ["kräuterkunde"] = "herbalism", herbalism = "herbalism",
+    lederverarbeitung = "leatherworking", leatherworking = "leatherworking", bergbau = "mining", mining = "mining",
+    ["kürschnerei"] = "skinning", skinning = "skinning", schneiderei = "tailoring", tailoring = "tailoring",
+    juwelierskunst = "jewelcrafting", jewelcrafting = "jewelcrafting", inschriftenkunde = "inscription", inscription = "inscription",
+}
+-- Fertigkeit, an der die Stufe voll ist -> nächste Stufe beim Lehrer (Name, nötige Charakterstufe)
+Hints.CAPS = { { at = 75, rank = "CODEX_HINT_RANK_2", level = 10 }, { at = 150, rank = "CODEX_HINT_RANK_3", level = 20 },
+    { at = 225, rank = "CODEX_HINT_RANK_4", level = 35 } }
+
+function Hints.CraftKey(skill)
+    if type(skill) ~= "string" then return nil end
+    return Hints.CRAFT_NAMES[skill:lower()]
+end
+
+-- Stufengrenze im Sprung (von, bis] überschritten?
+function Hints.CapReached(from, to)
+    for _, c in ipairs(Hints.CAPS) do
+        if from < c.at and to >= c.at then return c end
+    end
+end
+
+local function Design() return _G.FreewoodDesign end
+function Hints.ClassIcon(token)
+    local D = Design()
+    return D and D.ClassTex and token and D.ClassTex(token) or nil
+end
+function Hints.CraftIcon(key)
+    local D = Design()
+    return D and D.CraftTex and key and D.CraftTex(key) or nil
+end
+
+------------------------------------------------------------------------
+-- Sound: eingebaute Blizzard-Sounds (Name aus SOUNDKIT, sonst Nummer); fehlt einer, bleibt es still
+------------------------------------------------------------------------
+
+Hints.SOUNDS = {
+    { id = "quest", kit = "IG_QUEST_LIST_COMPLETE", num = 878 },
+    { id = "ready", kit = "READY_CHECK", num = 8960 },
+    { id = "warning", kit = "RAID_WARNING", num = 8959 },
+    { id = "queue", kit = "PVP_THROUGH_QUEUE", num = 8459 },
+    { id = "levelup", kit = "LEVELUPSOUND", num = 888 },
+    { id = "none" },
+}
+
+function Hints.SoundId()
+    local v = Codex.db.settings.hintSound
+    for _, s in ipairs(Hints.SOUNDS) do if s.id == v then return v end end
+    return "quest"
+end
+
+function Hints.PlaySound(id)
+    id = id or Hints.SoundId()
+    for _, s in ipairs(Hints.SOUNDS) do
+        if s.id == id then
+            if not s.num then return false end
+            local kit = _G.SOUNDKIT and s.kit and _G.SOUNDKIT[s.kit]
+            local n = type(kit) == "number" and kit or s.num
+            if type(_G.PlaySound) ~= "function" then return false end
+            local ok = pcall(_G.PlaySound, n, "Master")
+            return ok
+        end
+    end
+    return false
+end
+
+------------------------------------------------------------------------
 -- Anzeige
 ------------------------------------------------------------------------
 
@@ -120,9 +196,18 @@ function Hints.ResetPos()
     if frame then ApplyPos(frame) end
 end
 
+local function Font(parent, obj, justify)
+    local fs = parent:CreateFontString(nil, "OVERLAY", obj)
+    fs:SetJustifyH(justify or "CENTER")
+    return fs
+end
+
+-- Gratulationsfenster im Blizzard-Stil: Dialograhmen, Blizzard-Schriften, oben das grosse Icon
 local function Build()
-    local f = CreateFrame("Button", nil, UIParent)
-    f:SetSize(WIDTH, 80)
+    local f
+    local ok, b = pcall(CreateFrame, "Button", nil, UIParent, "BackdropTemplate")
+    f = ok and b or CreateFrame("Button", nil, UIParent)
+    f:SetSize(WIDTH, 160)
     f:SetFrameStrata("DIALOG")
     f:SetClampedToScreen(true)
     f:SetMovable(true)
@@ -136,36 +221,67 @@ local function Build()
     end)
     ApplyPos(f)
     f:Hide()
-    local bg = UI.CreatePanel(f, "bgDeep", "gold")
-    bg:SetAllPoints(f)
-    -- Inhalt auf eigener Ebene ueber dem Hintergrund (ein Kindfenster zeichnet sonst ueber den Texten des Eltern-Fensters)
+    if f.SetBackdrop then
+        pcall(f.SetBackdrop, f, {
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Gold-Border",
+            tile = true, tileSize = 32, edgeSize = 32,
+            insets = { left = 11, right = 12, top = 12, bottom = 11 },
+        })
+    end
     local c = CreateFrame("Frame", nil, f)
     c:SetAllPoints(f)
-    c:SetFrameLevel((bg:GetFrameLevel() or 1) + 2)
-    f.title = UI.CreateLabel(c, "", { font = "heading", size = 14, color = "goldLight" })
-    f.title:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -10)
-    f.title:SetPoint("TOPRIGHT", f, "TOPRIGHT", -12, -10)
-    f.title:SetWordWrap(false)
+    c:SetFrameLevel((f:GetFrameLevel() or 1) + 2)
+    -- grosses Icon halb über dem oberen Rand, mit Leuchten
+    f.glow = c:CreateTexture(nil, "BACKGROUND")
+    f.glow:SetTexture("Interface\\Cooldown\\star4")
+    f.glow:SetBlendMode("ADD")
+    f.glow:SetVertexColor(1, 0.82, 0.3, 0.7)
+    f.glow:SetSize(ICON * 1.9, ICON * 1.9)
+    f.glow:SetPoint("CENTER", f, "TOP", 0, 4)
+    f.icon = c:CreateTexture(nil, "ARTWORK")
+    f.icon:SetSize(ICON, ICON)
+    f.icon:SetPoint("CENTER", f, "TOP", 0, 4)
+    f.title = Font(c, "GameFontNormalHuge")
+    f.title:SetPoint("TOP", f, "TOP", 0, -(ICON / 2 + 14))
+    f.sub = Font(c, "GameFontHighlightLarge")
+    f.sub:SetPoint("TOP", f.title, "BOTTOM", 0, -6)
+    f.sub:SetWidth(WIDTH - 40)
+    f.lead = Font(c, "GameFontNormal")
+    f.lead:SetWidth(WIDTH - 40)
     f.rows = {}
     for i = 1, MAX_ROWS do
         local row = {}
         row.icon = c:CreateTexture(nil, "ARTWORK")
         row.icon:SetSize(ROW_H - 4, ROW_H - 4)
         row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-        row.icon:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -(34 + (i - 1) * ROW_H))
-        row.text = UI.CreateLabel(c, "", { size = 12 })
+        row.text = Font(c, "GameFontHighlight", "LEFT")
         row.text:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
-        row.text:SetWidth(WIDTH - 150)
+        row.text:SetWidth(WIDTH - 180)
         row.text:SetWordWrap(false)
-        row.cost = UI.CreateLabel(c, "", { size = 11, color = "textDim", justify = "RIGHT" })
-        row.cost:SetPoint("RIGHT", f, "RIGHT", -12, 0)
+        row.cost = Font(c, "GameFontHighlightSmall", "RIGHT")
+        row.cost:SetPoint("RIGHT", f, "RIGHT", -24, 0)
         row.cost:SetPoint("TOP", row.icon, "TOP", 0, 0)
         row.cost:SetPoint("BOTTOM", row.icon, "BOTTOM", 0, 0)
         row.cost:SetWidth(120)
         f.rows[i] = row
     end
-    f.more = UI.CreateLabel(c, "", { size = 11, color = "textDim" })
-    f.foot = UI.CreateLabel(c, "", { size = 10, color = "textDim" })
+    f.more = Font(c, "GameFontDisableSmall")
+    f.foot = Font(c, "GameFontDisableSmall")
+    f.foot:SetWidth(WIDTH - 40)
+    -- Aufploppen des Icons (Animation, falls vorhanden)
+    if f.icon.CreateAnimationGroup then
+        local okA, ag = pcall(f.icon.CreateAnimationGroup, f.icon)
+        if okA and ag then
+            local sc = ag:CreateAnimation("Scale")
+            if sc then
+                if sc.SetScaleFrom then sc:SetScaleFrom(0.4, 0.4) sc:SetScaleTo(1, 1) elseif sc.SetScale then sc:SetScale(1, 1) end
+                sc:SetDuration(0.35)
+                if sc.SetSmoothing then sc:SetSmoothing("OUT") end
+            end
+            f.pop = ag
+        end
+    end
     f:SetScript("OnClick", function()
         if Hints.editing then return end
         Hints.Dismiss()
@@ -192,16 +308,32 @@ local function InCombat()
     return _G.UnitAffectingCombat and _G.UnitAffectingCombat("player") or false
 end
 
+-- h = { icon, title, sub, lead, entries, note, onClick, sound }
 local function Display(h)
     frame = frame or Build()
     ApplyPos(frame)
     local L = FW.L
-    frame.title:SetText(h.title)
-    local n = math.min(#h.entries, MAX_ROWS)
+    frame.icon:SetTexture(h.icon)
+    frame.icon:SetShown(h.icon ~= nil)
+    frame.glow:SetShown(h.icon ~= nil)
+    frame.title:SetText(h.title or "")
+    frame.sub:SetText(h.sub or "")
+    local y = ICON / 2 + 14 + 30 + 6 + 22 + 10
+    frame.lead:ClearAllPoints()
+    frame.lead:SetPoint("TOP", frame, "TOP", 0, -y)
+    frame.lead:SetText(h.lead or "")
+    if h.lead and h.lead ~= "" then
+        local lh = (frame.lead.GetStringHeight and frame.lead:GetStringHeight()) or 14
+        y = y + math.max(14, lh) + 8
+    end
+    local entries = h.entries or {}
+    local n = math.min(#entries, MAX_ROWS)
     local total = 0
     local money = _G.GetMoney and _G.GetMoney() or nil
     for i = 1, MAX_ROWS do
-        local row, e = frame.rows[i], h.entries[i]
+        local row, e = frame.rows[i], entries[i]
+        row.icon:ClearAllPoints()
+        row.icon:SetPoint("TOPLEFT", frame, "TOPLEFT", 28, -(y + (i - 1) * ROW_H))
         if e and i <= n then
             local icon = e.sp and Codex.SpellIcon(e.sp) or nil
             row.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
@@ -214,29 +346,39 @@ local function Display(h)
             row.cost:SetText("")
         end
     end
-    for _, e in ipairs(h.entries) do total = total + (e.cost or 0) end
-    local y = 34 + n * ROW_H + 4
-    local more = #h.entries - n
+    for _, e in ipairs(entries) do total = total + (e.cost or 0) end
+    y = y + n * ROW_H + 4
+    local more = #entries - n
     frame.more:ClearAllPoints()
-    frame.more:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -y)
+    frame.more:SetPoint("TOP", frame, "TOP", 0, -y)
     frame.more:SetText(more > 0 and string.format(L.CODEX_HINT_MORE, more) or "")
     if more > 0 then y = y + 16 end
-    local foot = Hints.editing and L.CODEX_HINT_DRAG or L.CODEX_HINT_CLICK
-    if total > 0 and Codex.FormatMoney and not Hints.editing then
-        foot = string.format(L.CODEX_HINT_COST, Codex.FormatMoney(total))
-        if money and money < total then
-            foot = foot .. "  |  " .. string.format(L.CODEX_HINT_MISSING, Codex.FormatMoney(total - money))
+    local foot
+    if h.note then
+        foot = h.note
+    elseif Hints.editing then
+        foot = L.CODEX_HINT_DRAG
+    else
+        foot = h.onClick and L.CODEX_HINT_CLICK or ""
+        if total > 0 and Codex.FormatMoney then
+            local cost = string.format(L.CODEX_HINT_COST, Codex.FormatMoney(total))
+            if money and money < total then
+                cost = cost .. "  |  " .. string.format(L.CODEX_HINT_MISSING, Codex.FormatMoney(total - money))
+            end
+            foot = cost .. (foot ~= "" and ("  |  " .. foot) or "")
         end
-        foot = foot .. "  |  " .. L.CODEX_HINT_CLICK
     end
     frame.foot:ClearAllPoints()
-    frame.foot:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -y)
+    frame.foot:SetPoint("TOP", frame, "TOP", 0, -(y + 4))
     frame.foot:SetText(foot)
-    frame:SetHeight(y + 26)
+    local fh = (frame.foot.GetStringHeight and frame.foot:GetStringHeight()) or 14
+    frame:SetHeight(y + 4 + math.max(14, fh) + 22)
     frame.onClick = h.onClick
     frame.age = 0
     frame:SetAlpha(1)
     frame:Show()
+    if frame.pop and h.icon then pcall(frame.pop.Play, frame.pop) end
+    if h.sound and not Hints.editing then Hints.PlaySound() end
     Hints.showing = true
     Hints.shown = Hints.shown + 1
     Hints.last = h
@@ -257,7 +399,7 @@ function Hints.Flush()
 end
 
 function Hints.Push(h)
-    if not h or #h.entries == 0 then return false end
+    if not h or (#(h.entries or {}) == 0 and not h.always) then return false end
     Hints.queue[#Hints.queue + 1] = h
     Hints.Flush()
     return true
@@ -270,11 +412,25 @@ local function OpenPlan(level)
     end
 end
 
+-- Gratulation auf geraden Stufen: Klassen-Icon, Text, was beim Klassenlehrer dazukommt
+function Hints.ClassHint(level)
+    local L = FW.L
+    local token = Codex.Time and Codex.Time.PlayerToken()
+    local entries = Hints.ClassEntries(level)
+    local h = {
+        icon = Hints.ClassIcon(token), title = L.CODEX_HINT_CONGRATS,
+        sub = string.format(L.CODEX_HINT_LEVEL, level), entries = entries, always = true, sound = true,
+        onClick = OpenPlan(level),
+    }
+    if #entries > 0 then h.lead = L.CODEX_HINT_CLASS_LEAD else h.note = L.CODEX_HINT_NODATA_CLASS end
+    return h
+end
+
 function Hints.OnLevelUp(level)
     level = tonumber(level)
     if not level or not Hints.ClassOn() or not Codex.db.settings.enabled then return false end
-    local entries = Hints.ClassEntries(level)
-    return Hints.Push({ title = string.format(FW.L.CODEX_HINT_CLASS_TITLE, level), entries = entries, onClick = OpenPlan(level) })
+    if level % 2 ~= 0 then return false end              -- nur gerade Stufen (0.55.0)
+    return Hints.Push(Hints.ClassHint(level))
 end
 
 local prevSkill = {}
@@ -284,28 +440,40 @@ function Hints.OnSkill(skill, value)
     local from = prevSkill[skill] or (value - 1)
     prevSkill[skill] = value
     if not Hints.ProfOn() or not Codex.db.settings.enabled then return false end
+    local L = FW.L
     local entries = Hints.ProfEntries(skill, from, value)
-    return Hints.Push({ title = string.format(FW.L.CODEX_HINT_PROF_TITLE, skill, value), entries = entries, onClick = function() UI:Show("codex") end })
+    local key = Hints.CraftKey(skill)
+    local cap = key and Hints.CapReached(from, value)
+    if #entries == 0 and not cap then return false end
+    local h = {
+        icon = Hints.CraftIcon(key), title = L.CODEX_HINT_CONGRATS,
+        sub = string.format(L.CODEX_HINT_SKILL, skill, value), entries = entries, always = true, sound = true,
+        onClick = function() UI:Show("codex") end,
+    }
+    if cap then
+        h.lead = string.format(L.CODEX_HINT_RANK_LEAD, L[cap.rank] or cap.rank, cap.level)
+    elseif #entries > 0 then
+        h.lead = L.CODEX_HINT_PROF_LEAD
+    end
+    return Hints.Push(h)
 end
 
--- Test aus den Einstellungen: letzte Stufe mit Daten, sonst eine Beispielzeile
+-- Test aus den Einstellungen: letzte gerade Stufe mit Daten, sonst eine Beispielzeile
 function Hints.Demo()
-    local pl = _G.UnitLevel and _G.UnitLevel("player") or 1
-    local entries
+    local pl = _G.UnitLevel and _G.UnitLevel("player") or 2
+    local found
     for lv = pl, 1, -1 do
-        entries = Hints.ClassEntries(lv)
-        if #entries > 0 then
-            pl = lv
-            break
-        end
+        if #Hints.ClassEntries(lv) > 0 then found = lv break end
     end
-    if not entries or #entries == 0 then
-        entries = { { nm = FW.L.CODEX_HINT_DEMO, rk = "1", cost = 10000 } }
+    local h = Hints.ClassHint(found or math.max(2, pl - pl % 2))
+    if #h.entries == 0 then
+        h.entries = { { nm = FW.L.CODEX_HINT_DEMO, rk = "1", cost = 10000 } }
+        h.lead, h.note = FW.L.CODEX_HINT_CLASS_LEAD, nil
     end
     Hints.queue = {}
     Hints.showing = false
     if frame then frame:Hide() end
-    Hints.Push({ title = string.format(FW.L.CODEX_HINT_CLASS_TITLE, pl), entries = entries, onClick = OpenPlan(pl) })
+    Hints.Push(h)
 end
 
 -- Verschieben: der Hinweis bleibt stehen, bis der Modus beendet wird; Position wird beim Loslassen gespeichert
@@ -315,10 +483,12 @@ function Hints.SetEditMode(on)
     if on then
         Hints.queue, Hints.showing = {}, false
         if frame then frame:Hide() end
-        local pl = _G.UnitLevel and _G.UnitLevel("player") or 1
-        local entries = { { nm = FW.L.CODEX_HINT_DEMO, rk = "1", cost = 10000 }, { nm = FW.L.CODEX_HINT_DEMO, rk = "2", cost = 25000 } }
+        local pl = _G.UnitLevel and _G.UnitLevel("player") or 2
+        local h = Hints.ClassHint(math.max(2, pl - pl % 2))
+        h.entries = { { nm = FW.L.CODEX_HINT_DEMO, rk = "1", cost = 10000 }, { nm = FW.L.CODEX_HINT_DEMO, rk = "2", cost = 25000 } }
+        h.lead, h.note, h.sound = FW.L.CODEX_HINT_CLASS_LEAD, nil, false
         Hints.editing = true
-        Display({ title = string.format(FW.L.CODEX_HINT_CLASS_TITLE, pl), entries = entries })
+        Display(h)
     else
         Hints.SavePos()
         Hints.editing = false
@@ -393,7 +563,7 @@ if UI.RegisterSettingsSection then
         module = "codex",       -- Einstellungen im Modul (Core 0.54.0)
         category = "quest",
         order = 106,
-        height = 300,
+        height = 400,
         build = function(parent)
             local L = FW.L
             local f, stack = UI.CreateSection(parent, L.CODEX_HINT_HEADER)
@@ -404,6 +574,22 @@ if UI.RegisterSettingsSection then
             local profBox = UI.CreateCheckbox(f, L.CODEX_HINT_PROF_SWITCH, function() return Hints.ProfOn() end,
                 function(on) Codex.db.settings.hintProf = on and true or false end)
             stack:Add(profBox, { fit = true, gap = 4 })
+            local soundLabel = UI.CreateLabel(f, L.CODEX_HINT_SOUND, { size = 12, color = "gold" })
+            stack:Add(soundLabel, { height = 16, gap = 10 })
+            local soundDD = UI.CreateDropdown(f, 220, 24, {
+                getOptions = function()
+                    local list = {}
+                    for _, snd in ipairs(Hints.SOUNDS) do list[#list + 1] = { value = snd.id, text = L["CODEX_HINT_SOUND_" .. snd.id] or snd.id } end
+                    return list
+                end,
+                textOf = function(v) return L["CODEX_HINT_SOUND_" .. tostring(v)] or tostring(v) end,
+                onChange = function(v) Codex.db.settings.hintSound = v Hints.PlaySound(v) end,
+            })
+            soundDD:SetValue(Hints.SoundId())
+            stack:Add(soundDD, { height = 24, gap = 4 })
+            local probe = UI.CreateButton(f, L.CODEX_HINT_SOUND_TEST, 200, 26, function() Hints.PlaySound() end, "default")
+            stack:Add(probe, { height = 26, gap = 6 })
+            f.soundDD = soundDD
             local test = UI.CreateButton(f, L.CODEX_HINT_TEST, 200, 26, function() Hints.Demo() end, "default")
             stack:Add(test, { height = 26, gap = 12 })
             local move
@@ -424,6 +610,7 @@ if UI.RegisterSettingsSection then
         refresh = function(frame)
             frame.classBox:Refresh()
             frame.profBox:Refresh()
+            if frame.soundDD then frame.soundDD:SetValue(Hints.SoundId()) end
         end,
     })
 end
