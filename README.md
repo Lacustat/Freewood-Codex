@@ -44,6 +44,7 @@ The Codex is the database of the Freewood family. It learns quests, creatures, o
 - Search, filters (for example weapon + bow + epic), sorting and favourites.
 - Locations on the world map; open the Codex directly on an item with a modifier click in bags, chat or the auction house.
 - Extra tooltip lines: drops, vendors, quest use.
+- Disenchanting in the item tooltip: which materials with which chance and amount, optionally with auction value. Base values follow the classic rules (quality, item level, armour or weapon); your own disenchants are measured and replace them after 20 per group.
 
 ### Flights, paths and connections
 - Records where you walked on foot (path network) – the level planner uses it for routes and walking times.
@@ -72,6 +73,7 @@ The Codex is the database of the Freewood family. It learns quests, creatures, o
 - `/fwflight` – state of the flight recording
 - `/fwwege` – path network on the map
 - `/fwrare` – test window of the rare tracker
+- `/fwde` – your measured disenchants
 
 ### Requirements and installation
 - Required: **Freewood Core**. Optional: **Freewood CodexData** and **Freewood ForeverData** (starter data), **Freewood Design** (icons for the congratulation).
@@ -97,6 +99,7 @@ Der Codex ist die Datenbank der Freewood-Familie. Er lernt beim Spielen Quests, 
 - Suche, Filter (zum Beispiel Waffe + Bogen + episch), Sortierung und Favoriten.
 - Fundorte auf der Weltkarte; den Codex per Tastenkombination und Klick direkt auf einem Gegenstand öffnen (Taschen, Chat, Auktionshaus).
 - Zusätzliche Tooltip-Zeilen: Beute, Händler, Questverwendung.
+- Entzaubern im Item-Tooltip: welche Materialien mit welcher Chance und Menge, auf Wunsch mit Auktionswert. Die Grundwerte folgen den Classic-Regeln (Qualität, Itemlevel, Rüstung oder Waffe); eigene Entzauberungen werden gemessen und ersetzen sie ab 20 je Gruppe.
 
 ### Flüge, Wege und Verbindungen
 - Merkt sich, wo du zu Fuß gelaufen bist (Wegenetz) – der Levelplaner nutzt es für Routen und Laufzeiten.
@@ -125,6 +128,7 @@ Der Codex ist die Datenbank der Freewood-Familie. Er lernt beim Spielen Quests, 
 - `/fwflight` – Stand der Flugerfassung
 - `/fwwege` – Wegenetz auf der Karte
 - `/fwrare` – Testfenster des Rare-Trackers
+- `/fwde` – deine gemessenen Entzauberungen
 
 ### Voraussetzungen und Installation
 - Benötigt: **Freewood Core**. Optional: **Freewood CodexData** und **Freewood ForeverData** (Startdaten), **Freewood Design** (Icons für die Gratulation).
