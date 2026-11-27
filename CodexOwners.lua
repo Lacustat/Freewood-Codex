@@ -15,13 +15,37 @@ if not NS then
     return
 end
 
-NS.Owners = {
+-- Seit 0.57.0 dieselbe Liste wie die Admin-Charaktere im Core (Freewood.Net.ADMINS, Net.lua); hier nur der Rueckfall
+-- fuer einen aelteren Core und Zusatznamen, die nur Eigentuemer sein sollen (nicht Empfaenger der Daten).
+local FALLBACK = {
+    "Pinky Freewood",
+    "Pinky Silberrücken",
+    "Aroki Freewood",
+    "Dr Freewood",
+    "Greeny Freewood",
+    "Reddy Freewood",
     "Aroki Steel",
     "Lujinja Steel",
-    "Pinky Freewood",
-    "Dr Freewood",
+}
+local EXTRA = {
     "Aroki Silberrücken",
 }
+
+local function BuildOwners()
+    local out, seen = {}, {}
+    local FW = _G.Freewood
+    local Net = type(FW) == "table" and rawget(FW, "Net") or nil
+    local base = (type(Net) == "table" and type(Net.Admins) == "function" and Net.Admins()) or FALLBACK
+    for _, list in ipairs({ base, EXTRA }) do
+        for _, n in ipairs(list) do
+            local k = n:lower()
+            if not seen[k] then seen[k] = true; out[#out + 1] = n end
+        end
+    end
+    return out
+end
+NS.BuildOwners = BuildOwners
+NS.Owners = BuildOwners()
 
 -- Feste Moderatoren: immer Moderator, auch ohne die Liste eines Eigentuemers (ausser ausdruecklich gesperrt)
 NS.Moderators = {

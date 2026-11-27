@@ -13,6 +13,12 @@
 --   R  Anfrage nach bestimmten Datensaetzen (Fluestern)
 --   B  Datensatz in Stuecken (Fluestern)
 -- Empfangenes wird streng geprueft (Share.Sanitize) und getrennt je Absender gespeichert.
+--
+-- Weltweit (seit 0.57.0): die Mitgliederliste des verborgenen Kanals "FreewoodNet" (Core, Net.lua) nennt andere Freewood-Spieler
+-- der eigenen Fraktion. Alle paar Minuten (nicht im Kampf, nicht in Instanzen) geht ein Hallo per WHISPER-Addon-Nachricht an
+-- hoechstens 3 zufaellige davon; der ganze Abgleich mit ihnen laeuft dann ebenfalls per Fluestern (Art "whisper").
+-- Namen nur im Speicher. Schalter: Core-Einstellung netShare ("Daten mit anderen Freewood-Spielern tauschen", Standard an).
+-- Admin-Charaktere (FW.Net.ADMINS) nehmen nicht teil: sie bekommen alles ueber den Posteingang (Core WhisperSend, Dev DevInbox).
 
 local ADDON, NS = ...
 
@@ -49,6 +55,10 @@ local ANNOUNCE_EVERY = 60
 local ANNOUNCE_MIN = 300
 local SCAN_EVERY = 300
 local KINDS = { "guild", "party", "raid", "global" }
+local GOSSIP_EVERY = 300          -- Sekunden zwischen zwei Runden weltweiter Hallos
+local GOSSIP_PEERS = 3            -- Partner je Runde
+local GOSSIP_AGAIN = 3600         -- denselben Partner erst nach einer Stunde wieder rufen
+local WHISPER_TYPES = { H = true, Q = true, V = true, R = true, B = true }
 
 local state = {
     queue = {},
@@ -63,6 +73,7 @@ local state = {
     lastGlobalSend = 0,
     rawNames = {},
     routes = {},            -- [name] = Art des Kanals, ueber den wir ihn zuletzt gehoert haben
+    gossiped = {},          -- [name] = Zeitpunkt unseres letzten weltweiten Hallos (nur im Speicher)
     served_partners = {},   -- [name] = zeitpunkt der ersten Bedienung in der Stunde
     lastReply = 0,
     interval = MIN_INTERVAL,
@@ -321,18 +332,36 @@ function Sync:Pump()
     return false
 end
 
+-- Weltweites Netz erlaubt? (Core-Schalter netShare, nicht auf Admin-Charakteren)
+function Sync:WorldEnabled()
+    local Net = FW.Net
+    if not (Net and Net.Enabled and Net.Enabled()) then
+        return false
+    end
+    if Net.SelfIsAdmin and Net.SelfIsAdmin() then
+        return false
+    end
+    return self:IsEnabled()
+end
+
 -- Antwort an einen Spieler: ueber denselben Kanal, auf dem wir ihn gehoert haben, mit seinem Namen
--- als Empfaenger in der Nachricht (andere ignorieren sie). Fluestern gibt es bewusst nicht.
+-- als Empfaenger in der Nachricht (andere ignorieren sie). Kam er per Fluestern (weltweit), wird zurueckgefluestert.
 local function Reply(key, text)
     local kind = state.routes[key] or (state.peers[key] and state.peers[key].kind)
     if not kind then
         return false
     end
+    local who = state.rawNames[key] or key
+    if kind == "whisper" then
+        if not Sync:WorldEnabled() then
+            return false
+        end
+        return Enqueue({ dist = "WHISPER", target = who, text = text:sub(1, 1) .. "|" .. who .. text:sub(2) })
+    end
     local dist, target = Sync:Distribution(kind)
     if not dist then
         return false
     end
-    local who = state.rawNames[key] or key
     return Enqueue({ dist = dist, target = target, text = text:sub(1, 1) .. "|" .. who .. text:sub(2) })
 end
 
@@ -426,6 +455,55 @@ function Sync:SendHello()
 end
 
 Sync.Broadcast = Broadcast
+
+-- Hallo an genau einen Spieler per Fluestern (weltweit)
+function Sync:WhisperHello(name)
+    if not self:WorldEnabled() or type(name) ~= "string" or name == "" or IsSelf(name) then
+        return false
+    end
+    local n, h = Share.Summary()
+    state.gossiped[KeyOf(name) or name] = Now()
+    state.stats.hello = state.stats.hello + 1
+    return Enqueue({ dist = "WHISPER", target = name, text = string.format("H|%d|%d", h, n) })
+end
+
+-- Eine Runde: bis zu GOSSIP_PEERS zufaellige Partner aus der Kanalliste, die wir in der letzten Stunde nicht gerufen haben
+function Sync:Gossip()
+    if not self:WorldEnabled() then
+        return 0
+    end
+    if InCombatLockdown and InCombatLockdown() then
+        return 0
+    end
+    if IsInInstance then
+        local ok, inside = pcall(IsInInstance)
+        if ok and inside then
+            return 0
+        end
+    end
+    local peers = FW.Net.Peers and FW.Net.Peers() or {}
+    local now, pool = Now(), {}
+    for _, name in ipairs(peers) do
+        local k = KeyOf(name) or name
+        if not IsSelf(name) and not (state.gossiped[k] and now - state.gossiped[k] < GOSSIP_AGAIN) then
+            pool[#pool + 1] = name
+        end
+    end
+    local sent = 0
+    while #pool > 0 and sent < GOSSIP_PEERS do
+        local name = table.remove(pool, math.random(#pool))
+        if self:WhisperHello(name) then
+            sent = sent + 1
+        end
+    end
+    -- alte Eintraege vergessen
+    for k, t in pairs(state.gossiped) do
+        if now - t > GOSSIP_AGAIN * 2 then
+            state.gossiped[k] = nil
+        end
+    end
+    return sent
+end
 
 local function SessionAllowed()
     local now = Now()
@@ -734,9 +812,12 @@ local function KindOf(channel)
         return "party"
     elseif channel == "CHANNEL" then
         return "global"
+    elseif channel == "WHISPER" then
+        return "whisper"
     end
     return nil
 end
+Sync.KindOf = KindOf
 
 function Sync:HandleMessage(channel, sender, text)
     if not self:IsEnabled() then
@@ -758,6 +839,9 @@ function Sync:HandleMessage(channel, sender, text)
     local t = text:sub(1, 1)
     local body = text:sub(3)
     local kind = KindOf(channel)
+    if kind == "whisper" and not (WHISPER_TYPES[t] and self:WorldEnabled()) then
+        return false
+    end
     if kind and (t == "H" or t == "A") then
         state.routes[name] = kind
     end
@@ -785,10 +869,19 @@ function Sync:HandleMessage(channel, sender, text)
             local known = Share.Sender(name, false)
             state.peers[name] = { kind = kind, t = Now(), hash = h, count = n, queried = peer.queried }
             -- Neuling gruesst zurueck: einmal antworten, damit er unsere Daten auch bekommt
-            if newcomer and Codex.Trust and Codex.Trust.IsSelfOwner() then
+            if newcomer and kind ~= "whisper" and Codex.Trust and Codex.Trust.IsSelfOwner() then
                 C_Timer.After(5 + math.random() * 10, function() Sync:SendTrust() end)
             end
-            if newcomer and Now() - state.lastReply > 60 then
+            if kind == "whisper" then
+                -- weltweit: einmal zurueckfluestern (hoechstens einmal je Stunde je Partner), damit er unsere Daten auch bekommt
+                local g = state.gossiped[name]
+                if not (g and Now() - g < GOSSIP_AGAIN) then
+                    state.gossiped[name] = Now()
+                    C_Timer.After(3 + math.random() * 5, function()
+                        Sync:WhisperHello(sender)
+                    end)
+                end
+            elseif newcomer and Now() - state.lastReply > 60 then
                 state.lastReply = Now()
                 C_Timer.After(3 + math.random() * 5, function()
                     Sync:SendHello()
@@ -1118,6 +1211,9 @@ function Sync:Start()
     end)
     Loop(gen, SCAN_EVERY, function()
         Sync:ScanOwn()
+    end)
+    Loop(gen, GOSSIP_EVERY, function()
+        Sync:Gossip()
     end)
     -- erstes Hallo nach dem Einloggen, verteilt, damit nicht alle gleichzeitig rufen
     C_Timer.After(5, function()

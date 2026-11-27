@@ -1,6 +1,6 @@
 # Freewood Codex
 
-**English · Deutsch** — Author: Lacustat · Version 0.56.0 · Interface 16001 (World of Warcraft: Forever)
+**English · Deutsch** — Author: Lacustat · Version 0.57.0 · Interface 16001 (World of Warcraft: Forever)
 
 ## Contents · Inhalt
 - [English](#english)
@@ -67,6 +67,7 @@ The Codex is the database of the Freewood family. It learns quests, creatures, o
 ### Sharing
 - New data goes to other players with the Codex automatically (can be switched off), so the database grows for everyone.
 - Data from other players never overwrites what you saw yourself.
+- Worldwide: other Freewood players of your faction are found through a hidden channel (only its member list is used) and the data is exchanged by invisible whispers. Names are kept in memory only. Can be switched off in the Core settings.
 
 ### Commands
 - `/fwcodex` – open the tab; `/fwcodex share` – check sharing
@@ -122,6 +123,7 @@ Der Codex ist die Datenbank der Freewood-Familie. Er lernt beim Spielen Quests, 
 ### Teilen
 - Neue Daten gehen automatisch an andere Spieler mit dem Codex (abschaltbar), so wächst die Datenbank für alle.
 - Daten anderer Spieler überschreiben nie, was du selbst gesehen hast.
+- Weltweit: andere Freewood-Spieler deiner Fraktion werden über einen verborgenen Kanal gefunden (nur seine Mitgliederliste wird genutzt), getauscht wird per unsichtbarem Flüstern. Namen nur im Speicher. In den Core-Einstellungen abschaltbar.
 
 ### Befehle
 - `/fwcodex` – Reiter öffnen; `/fwcodex share` – Teilen prüfen
