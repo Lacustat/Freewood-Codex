@@ -1,6 +1,6 @@
 # Freewood Codex
 
-**English · Deutsch** — Author: Lacustat · Version 0.55.0 · Interface 16001 (World of Warcraft: Forever)
+**English · Deutsch** — Author: Lacustat · Version 0.56.0 · Interface 16001 (World of Warcraft: Forever)
 
 ## Contents · Inhalt
 - [English](#english)
